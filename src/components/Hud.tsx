@@ -1,0 +1,36 @@
+"use client";
+
+import { useGame } from "@/game/store";
+import { clockOf, dayOf, formatDuration, formatMoney, minutesToNextCycle } from "@/game/time";
+
+function Cell({ label, value, color = "text-hud", testId }: { label: string; value: string; color?: string; testId?: string }) {
+  return (
+    <div className="flex min-w-0 flex-col items-center justify-center px-0.5 leading-none" data-testid={testId}>
+      <span className="truncate font-pixel text-[11px] tracking-wider text-[#8a84b8] uppercase">{label}</span>
+      <span className={`mt-0.5 truncate font-pixel text-[17px] neon-text ${color}`}>{value}</span>
+    </div>
+  );
+}
+
+export default function Hud() {
+  const cash = useGame((s) => s.game?.cash ?? 0);
+  const revenue = useGame((s) => s.game?.totalRevenue ?? 0);
+  const spent = useGame((s) => s.game?.totalSpent ?? 0);
+  const minute = useGame((s) => Math.floor(s.game?.minutes ?? 0));
+  const cycles = useGame((s) => s.game?.cyclesToday ?? 0);
+
+  return (
+    <header
+      className="relative z-30 grid min-h-11 shrink-0 grid-cols-6 py-1 border-b border-pink/40 bg-ink/95 shadow-[0_2px_16px_-4px_rgba(255,43,214,0.45)]"
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 4px)" }}
+      data-testid="hud"
+    >
+      <Cell label="Cash" value={formatMoney(cash, true)} testId="hud-cash" />
+      <Cell label="Revenue" value={formatMoney(revenue, true)} color="text-neon-green" />
+      <Cell label="Spent" value={formatMoney(spent, true)} color="text-danger" />
+      <Cell label={`Day ${dayOf(minute)}`} value={clockOf(minute)} color="text-cyan" testId="hud-clock" />
+      <Cell label="Next" value={formatDuration(minutesToNextCycle(minute))} color="text-purple" />
+      <Cell label="Cycles" value={String(cycles)} color="text-pink" />
+    </header>
+  );
+}

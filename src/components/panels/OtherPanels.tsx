@@ -1,0 +1,289 @@
+"use client";
+
+import { useRef } from "react";
+import { findRoom, ROOM_DEFS } from "@/game/building";
+import { COLORS, SPEEDS } from "@/game/constants";
+import { deserialize, serialize } from "@/game/save";
+import { useGame } from "@/game/store";
+import { clockOf, dayOf, formatMoney } from "@/game/time";
+import type { LogEntry } from "@/game/types";
+import Panel from "../Panel";
+import Portrait from "../Portrait";
+import { activityLabel, NeonButton, Section, Soon } from "../ui";
+import { usePolledGame } from "../usePolled";
+
+export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) {
+  const game = usePolledGame();
+  const openPanel = useGame((s) => s.openPanel);
+  const room = game ? findRoom(game.building, id) : undefined;
+  if (!game || !room) return null;
+  const def = ROOM_DEFS[room.type];
+  const here = game.workers.filter((w) => w.target?.roomId === room.id && w.activity !== "walking");
+  const heading = game.workers.filter((w) => w.target?.roomId === room.id && w.activity === "walking");
+
+  return (
+    <Panel title={def.name} accent={room.locked ? "#5a5470" : def.color} onClose={onClose} testId="panel-room">
+      <p className="text-xs text-white/70">{def.blurb}</p>
+      <div className="mt-3 flex gap-2 font-pixel text-[15px]">
+        <span className="rounded bg-black/30 px-2 py-1 text-white/60">Floor {room.floor + 1}</span>
+        <span className="rounded bg-black/30 px-2 py-1" style={{ color: def.color }}>
+          {room.locked ? "LOCKED" : `Level ${room.level}/5`}
+        </span>
+      </div>
+      {room.locked ? (
+        <Section title="Build">
+          <Soon>Building and upgrading rooms unlocks in Phase 4.</Soon>
+        </Section>
+      ) : (
+        <>
+          <Section title={`In the room · ${here.length}`}>
+            {here.length === 0 ? (
+              <p className="text-xs text-white/40">Nobody here right now.</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {here.map((w) => (
+                  <li key={w.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded px-1 py-1 text-left hover:bg-white/5"
+                      onClick={() => openPanel({ id: "worker", ref: w.id })}
+                    >
+                      <Portrait look={w.look} scale={1.5} />
+                      <span className="font-pixel text-base text-white">{w.name}</span>
+                      <span className="truncate text-[11px] text-white/50">{activityLabel(w, game.building)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {heading.length > 0 && (
+              <p className="mt-2 text-[11px] text-white/40">On the way: {heading.map((w) => w.name).join(", ")}</p>
+            )}
+          </Section>
+          <Section title="Coming up">
+            <Soon>{ROOM_FEATURES[room.type] ?? "More features arrive in later phases."}</Soon>
+          </Section>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+const ROOM_FEATURES: Partial<Record<string, string>> = {
+  COMMAND: "Mission assignments arrive in Phase 2.",
+  WAR_ROOM: "AI-powered meetings with live transcripts arrive in Phase 3.",
+  REVENUE_BAY: "Business tabs and the 30-day revenue chart arrive in Phase 2.",
+  TREASURY: "Budget sliders and the spending table arrive in Phase 2.",
+  FACTORY: "The production kanban arrives in Phase 2.",
+  CHILL: "Tired workers already come here to recover energy.",
+  SERVER_ROOM: "Server upgrades arrive in Phase 4.",
+};
+
+export function TreasuryPanel({ onClose }: { onClose: () => void }) {
+  const game = usePolledGame(1000);
+  if (!game) return null;
+  const payroll = game.workers.reduce((a, w) => a + w.salary, 0);
+  return (
+    <Panel title="Treasury" accent={COLORS.yellow} onClose={onClose} testId="panel-treasury">
+      <div className="grid grid-cols-2 gap-2 font-pixel">
+        <div className="rounded bg-black/30 p-2">
+          <div className="text-[13px] text-white/50 uppercase">Cash</div>
+          <div className="text-xl text-hud">{formatMoney(game.cash)}</div>
+        </div>
+        <div className="rounded bg-black/30 p-2">
+          <div className="text-[13px] text-white/50 uppercase">Payroll / day</div>
+          <div className="text-xl text-danger">{formatMoney(payroll)}</div>
+        </div>
+      </div>
+      <Section title="Salaries">
+        <table className="w-full font-pixel text-[15px]">
+          <tbody>
+            {game.workers.map((w) => (
+              <tr key={w.id} className="border-b border-white/5">
+                <td className="py-1 text-white">{w.name}</td>
+                <td className="py-1 text-xs text-white/50">{w.role}</td>
+                <td className="py-1 text-right text-hud">{formatMoney(w.salary)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Section>
+      <Section title="Budgets">
+        <Soon>Department budget sliders arrive in Phase 2.</Soon>
+      </Section>
+    </Panel>
+  );
+}
+
+export function FactoryPanel({ onClose }: { onClose: () => void }) {
+  return (
+    <Panel title="Factory" accent={COLORS.orange} onClose={onClose} testId="panel-factory">
+      <div className="grid grid-cols-4 gap-1.5">
+        {["Pending", "Approval", "Delivered", "Done"].map((c) => (
+          <div key={c} className="min-h-32 rounded border border-white/10 bg-black/20 p-1.5">
+            <div className="font-pixel text-[13px] text-[#ff9a3c] uppercase">{c}</div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3">
+        <Soon>Product cards with generated pixel mockups arrive in Phase 2.</Soon>
+      </div>
+    </Panel>
+  );
+}
+
+export function BuildPanel({ onClose }: { onClose: () => void }) {
+  const game = usePolledGame(1000);
+  if (!game) return null;
+  const locked = game.building.rooms.filter((r) => r.locked);
+  return (
+    <Panel title="Build" accent={COLORS.purple} onClose={onClose} testId="panel-build">
+      <Section title="Locked rooms">
+        <ul className="flex flex-col gap-2">
+          {locked.map((r) => (
+            <li key={r.id} className="flex items-center justify-between rounded border border-white/10 bg-black/20 p-2">
+              <div>
+                <div className="font-pixel text-base text-white">{ROOM_DEFS[r.type].name}</div>
+                <div className="text-[11px] text-white/50">{ROOM_DEFS[r.type].blurb}</div>
+              </div>
+              <NeonButton color={COLORS.purple} disabled title="Building arrives in Phase 4">
+                Build
+              </NeonButton>
+            </li>
+          ))}
+        </ul>
+      </Section>
+      <Section title="More">
+        <Soon>New floors, room upgrades and shop items (coffee machine, better PCs, pool table, server rack, neon sign) arrive in Phase 4.</Soon>
+      </Section>
+    </Panel>
+  );
+}
+
+const LOG_COLORS: Record<LogEntry["kind"], string> = {
+  info: "text-white/75",
+  good: "text-neon-green",
+  bad: "text-danger",
+  system: "text-cyan",
+};
+
+export function LogPanel({ onClose }: { onClose: () => void }) {
+  const game = usePolledGame(500);
+  if (!game) return null;
+  return (
+    <Panel title="Log" accent={COLORS.pink} onClose={onClose} testId="panel-log">
+      <ul className="flex flex-col gap-1">
+        {[...game.log].reverse().map((e, i) => (
+          <li key={`${e.t}-${i}`} className="flex gap-2 text-xs">
+            <span className="shrink-0 font-pixel text-[14px] text-[#8a84b8]">
+              D{dayOf(e.t)} {clockOf(e.t)}
+            </span>
+            <span className={LOG_COLORS[e.kind]}>{e.text}</span>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+function Toggle({ label, value, onChange, testId }: { label: string; value: boolean; onChange: (v: boolean) => void; testId?: string }) {
+  return (
+    <label className="flex items-center justify-between py-1.5">
+      <span className="font-pixel text-lg text-white/85">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        data-testid={testId}
+        onClick={() => onChange(!value)}
+        className={`relative h-6 w-11 rounded-full border transition-colors ${value ? "border-cyan bg-cyan/30" : "border-white/20 bg-white/5"}`}
+      >
+        <span className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${value ? "left-6 bg-cyan" : "left-0.5 bg-white/50"}`} />
+      </button>
+    </label>
+  );
+}
+
+export function SettingsPanel({ onClose }: { onClose: () => void }) {
+  const game = useGame((s) => s.game);
+  const setSetting = useGame((s) => s.setSetting);
+  const setSpeed = useGame((s) => s.setSpeed);
+  const replaceGame = useGame((s) => s.replaceGame);
+  const resetGame = useGame((s) => s.resetGame);
+  const fileRef = useRef<HTMLInputElement>(null);
+  if (!game) return null;
+  const s = game.settings;
+
+  const exportSave = () => {
+    const blob = new Blob([serialize(useGame.getState().game ?? game)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `neon-hq-save-day${dayOf(game.minutes)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importSave = async (file: File | undefined) => {
+    if (!file) return;
+    const loaded = deserialize(await file.text());
+    if (!loaded) {
+      window.alert("That file is not a valid NEON HQ save.");
+      return;
+    }
+    replaceGame(loaded);
+  };
+
+  return (
+    <Panel title="Settings" accent={COLORS.purple} onClose={onClose} testId="panel-settings">
+      <Section title="Game speed">
+        <div className="grid grid-cols-4 gap-2">
+          {SPEEDS.map((sp) => (
+            <button
+              key={sp}
+              type="button"
+              onClick={() => setSpeed(sp)}
+              className={`rounded border py-1.5 font-pixel text-lg ${s.speed === sp ? "border-cyan text-cyan neon-border" : "border-white/15 text-white/60"}`}
+            >
+              {sp === 0 ? "❚❚" : `${sp}x`}
+            </button>
+          ))}
+        </div>
+      </Section>
+      <Section title="Options">
+        <Toggle label="Sound" value={s.sound} onChange={(v) => setSetting("sound", v)} />
+        <Toggle label="CRT scanlines" value={s.scanlines} onChange={(v) => setSetting("scanlines", v)} testId="toggle-scanlines" />
+        <Toggle label="AI replies" value={s.ai} onChange={(v) => setSetting("ai", v)} />
+      </Section>
+      <Section title="Save">
+        <div className="flex flex-wrap gap-2">
+          <NeonButton onClick={exportSave}>Export</NeonButton>
+          <NeonButton onClick={() => fileRef.current?.click()}>Import</NeonButton>
+          <NeonButton
+            color={COLORS.red}
+            onClick={() => {
+              if (window.confirm("Reset the game? Your save will be deleted.")) void resetGame();
+            }}
+            testId="reset-save"
+          >
+            Reset
+          </NeonButton>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              void importSave(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </Section>
+      <Section title="About">
+        <p className="text-xs text-white/60">NEON HQ is a game. All money and workers are fictional.</p>
+      </Section>
+    </Panel>
+  );
+}
+
