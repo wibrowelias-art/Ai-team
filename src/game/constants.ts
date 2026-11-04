@@ -56,6 +56,13 @@ export const WALK_SPEED = 22; // px / game minute
 export const ELEVATOR_SPEED = 40; // px / game minute
 
 export const START_CASH = 5000;
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SPEEDS = [0, 1, 2, 5] as const;
 export type Speed = (typeof SPEEDS)[number];
+
+/** Economy tuning. Money is fictional in-game currency. */
+export const RENT_PER_FLOOR = 150; // per day
+export const COMPUTE_PER_WORKER = 2; // per cycle
+export const OFFLINE_CAP_MINUTES = 3 * 24 * 60; // simulate at most 3 game days
+export const DEFAULT_BUDGET = 50; // per business per day
+export const MAX_BUDGET = 500;

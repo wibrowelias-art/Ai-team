@@ -1,5 +1,6 @@
 import { COLORS } from "./constants";
-import type { Worker, WorkerLook } from "./types";
+import { FOCUS_ROOM } from "./business";
+import type { Focus, Worker, WorkerLook } from "./types";
 
 export interface CrewSeed {
   id: string;
@@ -10,7 +11,7 @@ export interface CrewSeed {
   salary: number;
   skill: number;
   speed: number;
-  homeRoom: string;
+  focus: Focus;
   task: string;
 }
 
@@ -26,7 +27,7 @@ export const CREW_SEEDS: CrewSeed[] = [
     salary: 220,
     skill: 72,
     speed: 60,
-    homeRoom: "command",
+    focus: "ops",
     task: "Running operations",
   },
   {
@@ -38,7 +39,7 @@ export const CREW_SEEDS: CrewSeed[] = [
     salary: 160,
     skill: 64,
     speed: 82,
-    homeRoom: "treasury",
+    focus: "freelance",
     task: "Delivering client gigs",
   },
   {
@@ -50,7 +51,7 @@ export const CREW_SEEDS: CrewSeed[] = [
     salary: 180,
     skill: 78,
     speed: 48,
-    homeRoom: "command",
+    focus: "research",
     task: "Crunching market data",
   },
   {
@@ -62,7 +63,7 @@ export const CREW_SEEDS: CrewSeed[] = [
     salary: 170,
     skill: 70,
     speed: 55,
-    homeRoom: "server_room",
+    focus: "music",
     task: "Producing a lo-fi track",
   },
   {
@@ -74,7 +75,7 @@ export const CREW_SEEDS: CrewSeed[] = [
     salary: 150,
     skill: 62,
     speed: 75,
-    homeRoom: "factory",
+    focus: "shop",
     task: "Listing shop products",
   },
   {
@@ -86,7 +87,7 @@ export const CREW_SEEDS: CrewSeed[] = [
     salary: 165,
     skill: 66,
     speed: 70,
-    homeRoom: "revenue_bay",
+    focus: "social",
     task: "Posting trend content",
   },
   {
@@ -98,7 +99,7 @@ export const CREW_SEEDS: CrewSeed[] = [
     salary: 190,
     skill: 74,
     speed: 65,
-    homeRoom: "factory",
+    focus: "wild",
     task: "Running a weird experiment",
   },
 ];
@@ -132,7 +133,11 @@ export function createWorker(seed: CrewSeed, floor: number, x: number, rng: () =
     loyalty: 60,
     task: seed.task,
     taskProgress: 0,
-    homeRoom: seed.homeRoom,
+    homeRoom: FOCUS_ROOM[seed.focus],
+    focus: seed.focus,
+    cycleWork: 0,
+    boost: null,
+    lowLoyaltyDays: 0,
     relationships,
     memories: [],
     earned: 0,

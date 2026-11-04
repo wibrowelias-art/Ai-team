@@ -63,6 +63,10 @@ export interface WorkerTarget {
   purpose: Activity;
 }
 
+export type BusinessId = "shop" | "freelance" | "music" | "social" | "research";
+/** What a worker focuses on: a business, operations (boosts everything) or wildcard experiments. */
+export type Focus = BusinessId | "ops" | "wild";
+
 export interface Worker {
   id: string;
   name: string;
@@ -94,6 +98,122 @@ export interface Worker {
   /** game minutes left in the current activity */
   timer: number;
   bubble: { icon: BubbleIcon; until: number } | null;
+  // --- economy ---
+  focus: Focus;
+  /** game minutes spent working during the current cycle */
+  cycleWork: number;
+  /** temporary output multiplier from a task budget */
+  boost: { mult: number; until: number } | null;
+  lowLoyaltyDays: number;
+}
+
+export type ProductType = "tshirt" | "candle" | "poster" | "song" | "video";
+export type ProductStage = "pending" | "approval" | "delivered" | "done";
+
+export interface Product {
+  id: string;
+  type: ProductType;
+  name: string;
+  stage: ProductStage;
+  /** 0..100 inside the current stage */
+  progress: number;
+  quality: number;
+  seed: number;
+  creatorId: string;
+  createdAt: number;
+  liveAt: number | null;
+  sales: number;
+  revenue: number;
+}
+
+export type CostKind = "salaries" | "rent" | "compute" | "budgets" | "bonuses" | "events";
+
+export interface DayLedger {
+  day: number;
+  revenue: number;
+  spent: number;
+  byBusiness: Record<BusinessId, number>;
+  costs: Record<CostKind, number>;
+}
+
+export interface BusinessState {
+  totalRevenue: number;
+  /** music fans */
+  fans: number;
+  /** social followers */
+  followers: number;
+  /** research points */
+  points: number;
+  /** extra quality/efficiency from research */
+  efficiency: number;
+}
+
+export interface Modifier {
+  id: string;
+  label: string;
+  business: BusinessId | "all";
+  mult: number;
+  /** game minute when it ends; Infinity-like large number for "until fixed" */
+  until: number;
+  outage?: boolean;
+  /** limit a shop modifier to one product */
+  productId?: string;
+}
+
+export interface Economy {
+  businesses: Record<BusinessId, BusinessState>;
+  /** department budgets in $ per day */
+  budgets: Record<BusinessId, number>;
+  today: DayLedger;
+  history: DayLedger[];
+  modifiers: Modifier[];
+  investorShare: number;
+  unlocked: ProductType[];
+  autoApprove: boolean;
+  /** revenue earned during the last finished cycle (for UI feedback) */
+  lastCycleRevenue: number;
+  /** days in a row payroll left cash negative */
+  unpaidDays: number;
+  /** cash from outside the businesses (investors, mission rewards) */
+  otherIncome: number;
+  /** products that have ever gone live, per type */
+  launched: Record<ProductType, number>;
+}
+
+export interface Mission {
+  id: string;
+  templateId: string;
+  workerId: string;
+  title: string;
+  start: number;
+  target: number;
+  progress: number;
+  reward: number;
+  deadline: number;
+  status: "active" | "done" | "failed";
+}
+
+export interface EventChoice {
+  label: string;
+  detail: string;
+}
+
+export interface GameEvent {
+  id: string;
+  kind: "viral" | "refund" | "investor" | "poaching" | "outage" | "drama";
+  title: string;
+  body: string;
+  choices: EventChoice[];
+  defaultChoice: number;
+  createdAt: number;
+  data: Record<string, string | number>;
+}
+
+export interface ChatMessage {
+  id: string;
+  from: "player" | "worker";
+  text: string;
+  t: number;
 }
 
 export interface LogEntry {
@@ -110,6 +230,13 @@ export interface Settings {
 }
 
 export interface GameState {
+  economy: Economy;
+  products: Product[];
+  missions: Mission[];
+  pendingEvents: GameEvent[];
+  chats: Record<string, ChatMessage[]>;
+  /** counter for ids */
+  seq: number;
   version: number;
   started: boolean;
   company: { name: string; theme: ThemeId };

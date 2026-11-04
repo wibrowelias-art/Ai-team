@@ -1,5 +1,10 @@
+import { FOCUS_ROOM } from "./business";
 import { SAVE_VERSION } from "./constants";
-import type { GameState, Settings } from "./types";
+import { CREW_SEEDS } from "./crew";
+import { newEconomy } from "./economy";
+import { starterProducts } from "./products";
+import { dayOf } from "./time";
+import type { Focus, GameState, Settings, Worker } from "./types";
 
 const DEFAULT_SETTINGS: Settings = { speed: 1, sound: true, scanlines: true, ai: true };
 
@@ -29,14 +34,47 @@ export function isValidSave(data: unknown): data is GameState {
   );
 }
 
-/** Upgrade older saves to the current shape. */
-export function migrate(s: GameState): GameState {
+const FOCUS_BY_ROOM: Record<string, Focus> = { factory: "shop", treasury: "freelance", server_room: "music", revenue_bay: "social", command: "research" };
+
+function migrateWorker(w: Worker): Worker {
+  const seedFocus = CREW_SEEDS.find((c) => c.id === w.id)?.focus;
+  const focus: Focus = w.focus ?? seedFocus ?? FOCUS_BY_ROOM[w.homeRoom] ?? "ops";
   return {
-    ...s,
-    version: SAVE_VERSION,
-    log: Array.isArray(s.log) ? s.log : [],
-    settings: { ...DEFAULT_SETTINGS, ...(s.settings as Partial<Settings>) },
+    ...w,
+    focus,
+    homeRoom: w.focus ? w.homeRoom : FOCUS_ROOM[focus],
+    cycleWork: w.cycleWork ?? 0,
+    boost: w.boost ?? null,
+    lowLoyaltyDays: w.lowLoyaltyDays ?? 0,
+    relationships: w.relationships ?? {},
+    memories: w.memories ?? [],
   };
+}
+
+/** Upgrade older saves to the current shape. */
+export function migrate(input: GameState): GameState {
+  const s: GameState = {
+    ...input,
+    version: SAVE_VERSION,
+    log: Array.isArray(input.log) ? input.log : [],
+    settings: { ...DEFAULT_SETTINGS, ...(input.settings as Partial<Settings>) },
+    workers: input.workers.map(migrateWorker),
+    missions: Array.isArray(input.missions) ? input.missions : [],
+    pendingEvents: Array.isArray(input.pendingEvents) ? input.pendingEvents : [],
+    chats: input.chats && typeof input.chats === "object" ? input.chats : {},
+    seq: typeof input.seq === "number" ? input.seq : 0,
+  };
+  if (!s.economy || typeof s.economy !== "object") {
+    // v1 → v2: the economy arrives.
+    s.economy = newEconomy(dayOf(s.minutes));
+    const bunc = s.workers.find((w) => w.id === "bunc") ?? s.workers[0];
+    s.products = bunc ? starterProducts(s, bunc, Math.random) : [];
+    s.economy.launched.tshirt = s.products.length;
+  } else {
+    s.economy = { ...newEconomy(dayOf(s.minutes)), ...s.economy };
+    s.products = Array.isArray(input.products) ? input.products : [];
+  }
+  return s;
 }
 
 export function serialize(s: GameState): string {
