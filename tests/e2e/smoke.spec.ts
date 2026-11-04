@@ -65,6 +65,58 @@ test("mobile: crew list opens a worker profile and the save survives a reload", 
   await expect(page.getByTestId("intro")).toHaveCount(0);
 });
 
+test("mobile: a $200 bonus to Bunc lowers cash by $200 and Bunc texts thanks within 3s", async ({ page }) => {
+  await startGame(page);
+  await page.getByTestId("speed-0").click(); // freeze the economy so cash only moves by the bonus
+  const before = await page.getByTestId("hud-cash").innerText();
+  await page.getByTestId("nav-crew").click();
+  await page.getByTestId("crew-bunc").click();
+  await page.getByTestId("bonus-200").click();
+  await expect(page.getByTestId("toast-message").first()).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("toast-message").first()).toContainText("Bunc");
+  const after = await page.getByTestId("hud-cash").innerText();
+  const n = (s: string) => Number(s.replace(/[^0-9.-]/g, ""));
+  expect(n(before) - n(after)).toBe(200);
+  await expect(page.getByTestId("worker-messages")).toBeVisible();
+});
+
+test("mobile: Treasury, Revenue Bay and Factory show the economy", async ({ page }) => {
+  await startGame(page);
+  await page.getByTestId("nav-treasury").click();
+  await expect(page.getByTestId("treasury-content")).toBeVisible();
+  await expect(page.getByTestId("budget-shop")).toBeVisible();
+  await page.getByTestId("panel-close").click();
+
+  await page.getByTestId("hud-revenue").click();
+  await expect(page.getByTestId("revenue-content")).toBeVisible();
+  await expect(page.getByRole("img", { name: "Last 30 days" })).toBeVisible();
+  await page.getByTestId("panel-close").click();
+
+  await page.getByTestId("nav-factory").click();
+  await expect(page.getByTestId("factory-content")).toBeVisible();
+  await expect(page.getByTestId("factory-content")).toContainText("HQ Logo Tee");
+});
+
+test("mobile: coming back after 2 hours shows a summary and the simulated cash", async ({ page }) => {
+  await startGame(page);
+  // Close the tab (it saves on the way out), then come back in a new tab whose clock is 2 hours ahead.
+  const later = await page.context().newPage();
+  await page.close({ runBeforeUnload: true });
+  await later.addInitScript(() => {
+    const realNow = Date.now.bind(Date);
+    Date.now = () => realNow() + 2 * 60 * 60 * 1000;
+  });
+  page = later;
+  await page.goto("/");
+  await expect(page.getByTestId("away-modal")).toBeVisible();
+  const delta = await page.getByTestId("away-cash").innerText();
+  await page.getByTestId("away-continue").click();
+  const cash = await page.getByTestId("hud-cash").innerText();
+  const n = (s: string) => Number(s.replace(/[^0-9.-]/g, ""));
+  // HUD cash may be compact ($12.3K), so compare loosely.
+  expect(Math.abs(5000 + n(delta) - n(cash) * (cash.includes("K") ? 1000 : 1))).toBeLessThan(cash.includes("K") ? 100 : 2);
+});
+
 test("mobile: tapping a room on the canvas opens its panel", async ({ page }) => {
   await startGame(page);
   const canvas = await box(page, "game-canvas");

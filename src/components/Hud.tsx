@@ -3,12 +3,30 @@
 import { useGame } from "@/game/store";
 import { clockOf, dayOf, formatDuration, formatMoney, minutesToNextCycle } from "@/game/time";
 
-function Cell({ label, value, color = "text-hud", testId }: { label: string; value: string; color?: string; testId?: string }) {
+function Cell({
+  label,
+  value,
+  color = "text-hud",
+  testId,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+  testId?: string;
+  onClick?: () => void;
+}) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="flex min-w-0 flex-col items-center justify-center px-0.5 leading-none" data-testid={testId}>
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className="flex min-w-0 flex-col items-center justify-center px-0.5 leading-none"
+      data-testid={testId}
+    >
       <span className="truncate font-pixel text-[11px] tracking-wider text-[#8a84b8] uppercase">{label}</span>
       <span className={`mt-0.5 truncate font-pixel text-[17px] neon-text ${color}`}>{value}</span>
-    </div>
+    </Tag>
   );
 }
 
@@ -18,6 +36,7 @@ export default function Hud() {
   const spent = useGame((s) => s.game?.totalSpent ?? 0);
   const minute = useGame((s) => Math.floor(s.game?.minutes ?? 0));
   const cycles = useGame((s) => s.game?.cyclesToday ?? 0);
+  const openPanel = useGame((s) => s.openPanel);
 
   return (
     <header
@@ -25,9 +44,9 @@ export default function Hud() {
       style={{ paddingTop: "calc(env(safe-area-inset-top) + 4px)" }}
       data-testid="hud"
     >
-      <Cell label="Cash" value={formatMoney(cash, true)} testId="hud-cash" />
-      <Cell label="Revenue" value={formatMoney(revenue, true)} color="text-neon-green" />
-      <Cell label="Spent" value={formatMoney(spent, true)} color="text-danger" />
+      <Cell label="Cash" value={formatMoney(cash, true)} color={cash < 0 ? "text-danger" : "text-hud"} testId="hud-cash" onClick={() => openPanel({ id: "treasury" })} />
+      <Cell label="Revenue" value={formatMoney(revenue, true)} color="text-neon-green" testId="hud-revenue" onClick={() => openPanel({ id: "revenue" })} />
+      <Cell label="Spent" value={formatMoney(spent, true)} color="text-danger" testId="hud-spent" onClick={() => openPanel({ id: "treasury" })} />
       <Cell label={`Day ${dayOf(minute)}`} value={clockOf(minute)} color="text-cyan" testId="hud-clock" />
       <Cell label="Next" value={formatDuration(minutesToNextCycle(minute))} color="text-purple" />
       <Cell label="Cycles" value={String(cycles)} color="text-pink" />

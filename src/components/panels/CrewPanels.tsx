@@ -1,8 +1,10 @@
 "use client";
 
 import { findRoom, floorBase, ROOM_DEFS } from "@/game/building";
+import { FOCUS_LABEL } from "@/game/business";
 import { COLORS } from "@/game/constants";
 import { useGame } from "@/game/store";
+import PayBox, { FOCUSES } from "./PayBox";
 import { formatMoney } from "@/game/time";
 import Panel from "../Panel";
 import Portrait from "../Portrait";
@@ -67,8 +69,11 @@ function MiniBar({ value, color }: { value: number; color: string }) {
 export function WorkerPanel({ id, onClose }: { id: string; onClose: () => void }) {
   const game = usePolledGame();
   const focusOn = useGame((s) => s.focusOn);
+  const setFocus = useGame((s) => s.setFocus);
   const w = game?.workers.find((x) => x.id === id);
   if (!game || !w) return null;
+  const thread = game.chats[w.id] ?? [];
+  const mission = game.missions.find((m) => m.workerId === w.id && m.status === "active");
   const home = findRoom(game.building, w.homeRoom);
   const rels = Object.entries(w.relationships)
     .map(([oid, v]) => ({ name: game.workers.find((o) => o.id === oid)?.name, v }))
@@ -120,13 +125,58 @@ export function WorkerPanel({ id, onClose }: { id: string; onClose: () => void }
         <NeonButton onClick={() => focusOn(w.x, floorBase(w.floor) + w.y - 8)} testId="worker-locate">
           Locate
         </NeonButton>
-        <NeonButton color={COLORS.yellow} disabled title="Payments arrive in Phase 2">
-          Pay bonus
-        </NeonButton>
         <NeonButton color={COLORS.pink} disabled title="AI chat arrives in Phase 3">
           Chat
         </NeonButton>
       </div>
+
+      <PayBox workerId={w.id} name={w.name} cash={game.cash} />
+
+      <Section title="Business focus">
+        <div className="flex flex-wrap gap-1">
+          {FOCUSES.map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFocus(w.id, f)}
+              aria-pressed={w.focus === f}
+              data-testid={`focus-${f}`}
+              className={`rounded border px-2 py-1 font-pixel text-[15px] ${
+                w.focus === f ? "border-cyan bg-cyan/15 text-cyan" : "border-white/15 text-white/60 hover:text-white"
+              }`}
+            >
+              {FOCUS_LABEL[f]}
+            </button>
+          ))}
+        </div>
+        {mission && (
+          <p className="mt-2 text-[11px] text-cyan/80">
+            On a mission: {mission.title} ({Math.floor(mission.progress)}/{mission.target})
+          </p>
+        )}
+        {w.boost && w.boost.until > game.minutes && (
+          <p className="mt-1 text-[11px] text-neon-green">Task budget: +{Math.round((w.boost.mult - 1) * 100)}% output</p>
+        )}
+      </Section>
+
+      <Section title="Messages">
+        {thread.length === 0 ? (
+          <p className="text-xs text-white/40">No messages yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-1" data-testid="worker-messages">
+            {thread.slice(-6).map((m) => (
+              <li
+                key={m.id}
+                className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs ${
+                  m.from === "worker" ? "self-start bg-white/10 text-white" : "self-end bg-cyan/20 text-cyan"
+                }`}
+              >
+                {m.text}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
 
       <Section title="Relationships">
         <ul className="grid grid-cols-2 gap-x-3 gap-y-1 font-pixel text-[15px]">

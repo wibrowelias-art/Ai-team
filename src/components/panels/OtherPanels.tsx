@@ -5,11 +5,12 @@ import { findRoom, ROOM_DEFS } from "@/game/building";
 import { COLORS, SPEEDS } from "@/game/constants";
 import { deserialize, serialize } from "@/game/save";
 import { useGame } from "@/game/store";
-import { clockOf, dayOf, formatMoney } from "@/game/time";
-import type { LogEntry } from "@/game/types";
+import { clockOf, dayOf } from "@/game/time";
+import type { GameState, LogEntry } from "@/game/types";
 import Panel from "../Panel";
 import Portrait from "../Portrait";
 import { activityLabel, NeonButton, Section, Soon } from "../ui";
+import { CommandContent, FactoryContent, RevenueContent, TreasuryContent } from "./EconomyPanels";
 import { usePolledGame } from "../usePolled";
 
 export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) {
@@ -60,9 +61,7 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
               <p className="mt-2 text-[11px] text-white/40">On the way: {heading.map((w) => w.name).join(", ")}</p>
             )}
           </Section>
-          <Section title="Coming up">
-            <Soon>{ROOM_FEATURES[room.type] ?? "More features arrive in later phases."}</Soon>
-          </Section>
+          <RoomFeature type={room.type} game={game} />
         </>
       )}
     </Panel>
@@ -70,64 +69,68 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
 }
 
 const ROOM_FEATURES: Partial<Record<string, string>> = {
-  COMMAND: "Mission assignments arrive in Phase 2.",
-  WAR_ROOM: "AI-powered meetings with live transcripts arrive in Phase 3.",
-  REVENUE_BAY: "Business tabs and the 30-day revenue chart arrive in Phase 2.",
-  TREASURY: "Budget sliders and the spending table arrive in Phase 2.",
-  FACTORY: "The production kanban arrives in Phase 2.",
-  CHILL: "Tired workers already come here to recover energy.",
-  SERVER_ROOM: "Server upgrades arrive in Phase 4.",
+  WAR_ROOM: "AI-powered meetings with live transcripts arrive in Phase 3. Worker drama gets settled here.",
+  CHILL: "Tired workers come here to recover energy.",
+  SERVER_ROOM: "Server upgrades arrive in Phase 4. Pham produces music here.",
 };
 
+function RoomFeature({ type, game }: { type: string; game: GameState }) {
+  switch (type) {
+    case "COMMAND":
+      return <CommandContent game={game} />;
+    case "REVENUE_BAY":
+      return (
+        <div className="mt-4">
+          <RevenueContent game={game} />
+        </div>
+      );
+    case "TREASURY":
+      return (
+        <div className="mt-4">
+          <TreasuryContent game={game} />
+        </div>
+      );
+    case "FACTORY":
+      return (
+        <div className="mt-4">
+          <FactoryContent game={game} />
+        </div>
+      );
+    default:
+      return (
+        <Section title="Notes">
+          <Soon>{ROOM_FEATURES[type] ?? "More features arrive in later phases."}</Soon>
+        </Section>
+      );
+  }
+}
+
 export function TreasuryPanel({ onClose }: { onClose: () => void }) {
-  const game = usePolledGame(1000);
+  const game = usePolledGame(300);
   if (!game) return null;
-  const payroll = game.workers.reduce((a, w) => a + w.salary, 0);
   return (
     <Panel title="Treasury" accent={COLORS.yellow} onClose={onClose} testId="panel-treasury">
-      <div className="grid grid-cols-2 gap-2 font-pixel">
-        <div className="rounded bg-black/30 p-2">
-          <div className="text-[13px] text-white/50 uppercase">Cash</div>
-          <div className="text-xl text-hud">{formatMoney(game.cash)}</div>
-        </div>
-        <div className="rounded bg-black/30 p-2">
-          <div className="text-[13px] text-white/50 uppercase">Payroll / day</div>
-          <div className="text-xl text-danger">{formatMoney(payroll)}</div>
-        </div>
-      </div>
-      <Section title="Salaries">
-        <table className="w-full font-pixel text-[15px]">
-          <tbody>
-            {game.workers.map((w) => (
-              <tr key={w.id} className="border-b border-white/5">
-                <td className="py-1 text-white">{w.name}</td>
-                <td className="py-1 text-xs text-white/50">{w.role}</td>
-                <td className="py-1 text-right text-hud">{formatMoney(w.salary)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Section>
-      <Section title="Budgets">
-        <Soon>Department budget sliders arrive in Phase 2.</Soon>
-      </Section>
+      <TreasuryContent game={game} />
+    </Panel>
+  );
+}
+
+export function RevenuePanel({ onClose }: { onClose: () => void }) {
+  const game = usePolledGame(500);
+  if (!game) return null;
+  return (
+    <Panel title="Revenue Bay" accent={COLORS.green} onClose={onClose} testId="panel-revenue">
+      <RevenueContent game={game} />
     </Panel>
   );
 }
 
 export function FactoryPanel({ onClose }: { onClose: () => void }) {
+  const game = usePolledGame(300);
+  if (!game) return null;
   return (
     <Panel title="Factory" accent={COLORS.orange} onClose={onClose} testId="panel-factory">
-      <div className="grid grid-cols-4 gap-1.5">
-        {["Pending", "Approval", "Delivered", "Done"].map((c) => (
-          <div key={c} className="min-h-32 rounded border border-white/10 bg-black/20 p-1.5">
-            <div className="font-pixel text-[13px] text-[#ff9a3c] uppercase">{c}</div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3">
-        <Soon>Product cards with generated pixel mockups arrive in Phase 2.</Soon>
-      </div>
+      <FactoryContent game={game} />
     </Panel>
   );
 }

@@ -9,7 +9,8 @@ import GameCanvas from "./GameCanvas";
 import Hud from "./Hud";
 import Intro from "./Intro";
 import { CrewPanel, WorkerPanel } from "./panels/CrewPanels";
-import { BuildPanel, FactoryPanel, LogPanel, RoomPanel, SettingsPanel, TreasuryPanel } from "./panels/OtherPanels";
+import { AwayModal, EventModal, Toasts } from "./Overlays";
+import { BuildPanel, FactoryPanel, LogPanel, RevenuePanel, RoomPanel, SettingsPanel, TreasuryPanel } from "./panels/OtherPanels";
 
 const AUTOSAVE_MS = 10_000;
 
@@ -67,6 +68,8 @@ function Panels() {
       return <LogPanel onClose={close} />;
     case "settings":
       return <SettingsPanel onClose={close} />;
+    case "revenue":
+      return <RevenuePanel onClose={close} />;
   }
 }
 
@@ -137,7 +140,10 @@ export default function Game() {
         <div className="vignette absolute inset-0" />
         {scanlines && <div className="scanlines absolute inset-0" data-testid="scanlines" />}
         <TopControls />
+        <Toasts />
         <Panels />
+        <EventModal />
+        <AwayModal />
       </div>
       <BottomBar />
     </main>
