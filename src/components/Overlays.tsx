@@ -137,7 +137,10 @@ export function Toasts() {
       for (const m of thread) {
         if (seen.current.has(m.id)) continue;
         seen.current.add(m.id);
-        if (m.from === "worker") toast(m.text, "message", workerId);
+        // No toast for the chat that is already open on screen.
+        const open = useGame.getState().panel;
+        const watching = open?.id === "chat" && open.ref === workerId;
+        if (m.from === "worker" && !watching) toast(m.text, "message", workerId);
       }
     }
   }, [game, toast]);
@@ -172,7 +175,7 @@ export function Toasts() {
             onClick={() => {
               dismiss(t.id);
               if (w) {
-                openPanel({ id: "worker", ref: w.id });
+                openPanel({ id: t.kind === "message" ? "chat" : "worker", ref: w.id });
                 focusOn(w.x, floorBase(w.floor) - 8);
               }
             }}

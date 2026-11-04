@@ -20,9 +20,14 @@ export function CrewPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <Panel title={`Crew · ${game.workers.length}`} accent={COLORS.cyan} onClose={onClose} testId="panel-crew">
-      <p className="mb-3 font-pixel text-[15px] text-white/60">
-        Payroll <span className="text-hud">{formatMoney(payroll)}</span>/day
-      </p>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="font-pixel text-[15px] text-white/60">
+          Payroll <span className="text-hud">{formatMoney(payroll)}</span>/day
+        </p>
+        <NeonButton color={COLORS.red} onClick={() => openPanel({ id: "meeting" })} testId="open-meeting">
+          📣 Meeting
+        </NeonButton>
+      </div>
       <ul className="flex flex-col gap-2">
         {game.workers.map((w) => (
           <li key={w.id}>
@@ -70,6 +75,7 @@ export function WorkerPanel({ id, onClose }: { id: string; onClose: () => void }
   const game = usePolledGame();
   const focusOn = useGame((s) => s.focusOn);
   const setFocus = useGame((s) => s.setFocus);
+  const openChat = useGame((s) => s.openPanel);
   const w = game?.workers.find((x) => x.id === id);
   if (!game || !w) return null;
   const thread = game.chats[w.id] ?? [];
@@ -125,7 +131,7 @@ export function WorkerPanel({ id, onClose }: { id: string; onClose: () => void }
         <NeonButton onClick={() => focusOn(w.x, floorBase(w.floor) + w.y - 8)} testId="worker-locate">
           Locate
         </NeonButton>
-        <NeonButton color={COLORS.pink} disabled title="AI chat arrives in Phase 3">
+        <NeonButton color={COLORS.pink} onClick={() => openChat({ id: "chat", ref: w.id })} testId="worker-chat">
           Chat
         </NeonButton>
       </div>

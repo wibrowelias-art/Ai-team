@@ -14,7 +14,8 @@ export default defineConfig({
     deviceScaleFactor: 1,
   },
   webServer: {
-    command: `npm run start -- -p ${PORT}`,
+    // Scripted AI path: deterministic and no real API calls from tests.
+    command: `AI_DISABLED=1 npm run start -- -p ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

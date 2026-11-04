@@ -117,6 +117,56 @@ test("mobile: coming back after 2 hours shows a summary and the simulated cash",
   expect(Math.abs(5000 + n(delta) - n(cash) * (cash.includes("K") ? 1000 : 1))).toBeLessThan(cash.includes("K") ? 100 : 2);
 });
 
+// ---- AI features. The test server runs with AI_DISABLED=1, so these exercise the scripted fallback,
+// which must satisfy the same acceptance criteria as the live model.
+
+async function openChat(page: Page, id: string) {
+  await page.getByTestId("nav-crew").click();
+  await page.getByTestId(`crew-${id}`).click();
+  await page.getByTestId("worker-chat").click();
+  await expect(page.getByTestId("panel-chat")).toBeVisible();
+}
+
+async function chatSay(page: Page, text: string): Promise<string> {
+  const before = await page.getByTestId("chat-worker-msg").count();
+  await page.getByTestId("chat-input").fill(text);
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByTestId("chat-worker-msg")).toHaveCount(before + 1, { timeout: 15_000 }).catch(() => undefined);
+  await expect(page.getByTestId("chat-typing")).toHaveCount(0, { timeout: 15_000 });
+  return (await page.getByTestId("chat-worker-msg").last().innerText()).trim();
+}
+
+test("mobile: Dennis remembers the boss's favorite color 5 messages later", async ({ page }) => {
+  await startGame(page);
+  await page.getByTestId("speed-0").click();
+  await openChat(page, "dennis");
+  await chatSay(page, "my favorite color is green");
+  for (const t of ["how's it going?", "any ideas for the shop?", "cool", "keep it up"]) await chatSay(page, t);
+  const answer = await chatSay(page, "what's my favorite color?");
+  expect(answer.toLowerCase()).toContain("green");
+});
+
+test("mobile: telling Luke to work on the shop sends him to the Factory", async ({ page }) => {
+  await startGame(page);
+  await openChat(page, "luke");
+  await chatSay(page, "go work on the shop");
+  await page.getByTestId("panel-close").click();
+  await page.getByTestId("nav-crew").click();
+  await expect(page.getByTestId("crew-luke")).toContainText(/Factory/);
+});
+
+test("mobile: a meeting about 'next product' has 3+ speakers and applies a decision", async ({ page }) => {
+  await startGame(page);
+  await page.getByTestId("nav-crew").click();
+  await page.getByTestId("open-meeting").click();
+  await page.getByTestId("meeting-topic").fill("next product");
+  await page.getByTestId("meeting-start").click();
+  await expect(page.getByTestId("meeting-decisions")).toBeVisible({ timeout: 40_000 });
+  const speakers = await page.getByTestId("meeting-line").evaluateAll((els) => els.map((e) => e.querySelector("span")?.textContent ?? ""));
+  expect(new Set(speakers.filter(Boolean)).size).toBeGreaterThanOrEqual(3);
+  await expect(page.getByTestId("meeting-decisions").locator("li", { hasText: "✓" }).first()).toBeVisible();
+});
+
 test("mobile: tapping a room on the canvas opens its panel", async ({ page }) => {
   await startGame(page);
   const canvas = await box(page, "game-canvas");

@@ -11,6 +11,8 @@ import Panel from "../Panel";
 import Portrait from "../Portrait";
 import { activityLabel, NeonButton, Section, Soon } from "../ui";
 import { CommandContent, FactoryContent, RevenueContent, TreasuryContent } from "./EconomyPanels";
+import { MeetingContent } from "./MeetingPanel";
+import { aiCallsLeft } from "@/lib/aiClient";
 import { usePolledGame } from "../usePolled";
 
 export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) {
@@ -37,30 +39,33 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
         </Section>
       ) : (
         <>
-          <Section title={`In the room · ${here.length}`}>
-            {here.length === 0 ? (
-              <p className="text-xs text-white/40">Nobody here right now.</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {here.map((w) => (
-                  <li key={w.id}>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded px-1 py-1 text-left hover:bg-white/5"
-                      onClick={() => openPanel({ id: "worker", ref: w.id })}
-                    >
-                      <Portrait look={w.look} scale={1.5} />
-                      <span className="font-pixel text-base text-white">{w.name}</span>
-                      <span className="truncate text-[11px] text-white/50">{activityLabel(w, game.building)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {heading.length > 0 && (
-              <p className="mt-2 text-[11px] text-white/40">On the way: {heading.map((w) => w.name).join(", ")}</p>
-            )}
-          </Section>
+          {/* The War Room is all about the meeting, so its occupant list is skipped. */}
+          {room.type !== "WAR_ROOM" && (
+            <Section title={`In the room · ${here.length}`}>
+              {here.length === 0 ? (
+                <p className="text-xs text-white/40">Nobody here right now.</p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {here.map((w) => (
+                    <li key={w.id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-1 py-1 text-left hover:bg-white/5"
+                        onClick={() => openPanel({ id: "worker", ref: w.id })}
+                      >
+                        <Portrait look={w.look} scale={1.5} />
+                        <span className="font-pixel text-base text-white">{w.name}</span>
+                        <span className="truncate text-[11px] text-white/50">{activityLabel(w, game.building)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {heading.length > 0 && (
+                <p className="mt-2 text-[11px] text-white/40">On the way: {heading.map((w) => w.name).join(", ")}</p>
+              )}
+            </Section>
+          )}
           <RoomFeature type={room.type} game={game} />
         </>
       )}
@@ -69,7 +74,6 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
 }
 
 const ROOM_FEATURES: Partial<Record<string, string>> = {
-  WAR_ROOM: "AI-powered meetings with live transcripts arrive in Phase 3. Worker drama gets settled here.",
   CHILL: "Tired workers come here to recover energy.",
   SERVER_ROOM: "Server upgrades arrive in Phase 4. Pham produces music here.",
 };
@@ -78,6 +82,8 @@ function RoomFeature({ type, game }: { type: string; game: GameState }) {
   switch (type) {
     case "COMMAND":
       return <CommandContent game={game} />;
+    case "WAR_ROOM":
+      return <MeetingContent game={game} />;
     case "REVENUE_BAY":
       return (
         <div className="mt-4">
@@ -257,6 +263,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         <Toggle label="Sound" value={s.sound} onChange={(v) => setSetting("sound", v)} />
         <Toggle label="CRT scanlines" value={s.scanlines} onChange={(v) => setSetting("scanlines", v)} testId="toggle-scanlines" />
         <Toggle label="AI replies" value={s.ai} onChange={(v) => setSetting("ai", v)} />
+        <p className="text-[11px] text-white/40">
+          {s.ai ? `${aiCallsLeft()} AI calls left this session. Scripted replies take over after that.` : "Workers use scripted replies."}
+        </p>
       </Section>
       <Section title="Save">
         <div className="flex flex-wrap gap-2">

@@ -11,6 +11,8 @@ import Intro from "./Intro";
 import { CrewPanel, WorkerPanel } from "./panels/CrewPanels";
 import { AwayModal, EventModal, Toasts } from "./Overlays";
 import { BuildPanel, FactoryPanel, LogPanel, RevenuePanel, RoomPanel, SettingsPanel, TreasuryPanel } from "./panels/OtherPanels";
+import ChatPanel from "./panels/ChatPanel";
+import { advanceMeeting, MEETING_LINE_INTERVAL_MS, workerTextTick } from "@/game/aiStore";
 
 const AUTOSAVE_MS = 10_000;
 
@@ -70,7 +72,24 @@ function Panels() {
       return <SettingsPanel onClose={close} />;
     case "revenue":
       return <RevenuePanel onClose={close} />;
+    case "chat":
+      return <ChatPanel key={panel.ref} workerId={panel.ref ?? ""} onClose={close} />;
+    case "meeting":
+      return <RoomPanel id="war_room" onClose={close} />;
   }
+}
+
+/** Drives meeting transcripts and workers texting the boss. */
+function AiRunner() {
+  useEffect(() => {
+    const lines = window.setInterval(advanceMeeting, MEETING_LINE_INTERVAL_MS);
+    const texts = window.setInterval(() => void workerTextTick(), 2500);
+    return () => {
+      window.clearInterval(lines);
+      window.clearInterval(texts);
+    };
+  }, []);
+  return null;
 }
 
 function TopControls() {
@@ -141,6 +160,7 @@ export default function Game() {
         {scanlines && <div className="scanlines absolute inset-0" data-testid="scanlines" />}
         <TopControls />
         <Toasts />
+        <AiRunner />
         <Panels />
         <EventModal />
         <AwayModal />

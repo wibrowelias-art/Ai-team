@@ -19,7 +19,8 @@ npm install
 npm run dev          # http://localhost:3000
 npm run check        # typecheck + lint + unit tests
 npm run build
-npm run test:e2e     # builds must exist: runs `next start` on :3100 and the mobile smoke test
+npm run test:e2e     # needs a build: runs `next start` on :3100 (AI disabled) and the mobile tests
+npm run check:bundle # needs a build: fails if the Gemini key or endpoint is in client code
 ```
 
 ## Project layout
@@ -63,6 +64,20 @@ tests/e2e/               Playwright
 - **Events** (~2 per day): viral hit, refund wave, investor offer, poaching, server outage, worker drama. Unanswered events resolve with their default choice after 12 game hours.
 - **Offline**: on return the world catches up at 1x, capped at 3 game days, events take their default choice and products auto-approve. A "While you were away" summary shows the numbers.
 
+## AI workers (Phase 3)
+
+Set `GEMINI_API_KEY` in `.env.local` (see `.env.example`). Without it, every worker still talks, using scripted replies in their own voice.
+
+- **`POST /api/chat`** handles three kinds of request: `chat`, `meeting` and `initiate` (a worker texting first). The key is only read on the server; `npm run check:bundle` scans the client build for it.
+- **Models**: `gemini-flash-latest` first (6 s cap), then `gemini-flash-lite-latest`, all inside a 12 s budget. JSON mode (`responseMimeType: application/json`). If the primary returns 429/503 or times out, it is skipped for 60 s. If both fail, the client uses a scripted reply. Override with `GEMINI_MODEL` / `GEMINI_FALLBACK_MODEL`.
+- **Limits**: 30 calls/minute per IP on the server (in memory, per instance), 400 calls per browser session on the client, payload size caps.
+- **Validation**: the server validates the request and the model's JSON (allowed actions only, known speakers only, no "as an AI" replies). The client validates again, then checks each action against the live game state (locked rooms, loyalty before quitting, cash) before applying it.
+- **Chat output**: `{ reply, action, newMemory, moodDelta }`. Actions: `assignTask`, `goTo`, `takeBreak`, `askRaise` (becomes an Approve/Decline card for you), `quit` (only below 20 loyalty).
+- **Memories**: up to 30 facts per worker, saved with the game. A local extractor catches obvious facts ("my favorite color is green") even if the model forgets.
+- **Meetings**: one call returns 6–12 lines and 1–3 decisions (`assignTask`, `setBudget`, `assignMission`). Lines appear one at a time in the War Room; you can type in at any point and the crew reacts. Decisions are applied when the meeting ends.
+- **Workers texting first**: about one text per game hour across the crew, at most one per worker every 30 game minutes. 20% of these use the AI; the rest are scripted.
+- **Tests**: unit tests mock `fetch`. The Playwright server runs with `AI_DISABLED=1`, so e2e tests are deterministic and cost nothing.
+
 ## Rendering
 
 The world is drawn at art resolution (260 px wide) into an offscreen buffer and scaled up with nearest-neighbour filtering. Neon parts are also drawn into an emissive buffer that is shrunk and re-expanded with bilinear filtering for a cheap two-level bloom. Name tags and emoji bubbles are drawn in screen space so they stay readable at any zoom. The static scene is cached and only rebuilt when the building or theme changes.
@@ -71,5 +86,5 @@ The world is drawn at art resolution (260 px wide) into an offscreen buffer and 
 
 - [x] **Phase 1**: project setup, canvas building with 3 floors and rooms, pixel sprites, walking and elevators, HUD, save and load
 - [x] **Phase 2**: economy, cycles, businesses, Treasury, Revenue Bay chart, Factory kanban, events, offline progress, tests
-- [ ] **Phase 3**: AI chat, actions, memories, meetings, worker-initiated messages
+- [x] **Phase 3**: AI chat, actions, memories, meetings, worker-initiated messages
 - [ ] **Phase 4**: build/upgrade system, hire and fire, polish, sound, tutorial, performance, mobile QA, deploy
