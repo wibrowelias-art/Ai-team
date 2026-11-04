@@ -6,9 +6,26 @@ import { GAME_MIN_PER_REAL_SEC, type Speed, type ThemeId } from "./constants";
 import { applyOffline, type AwaySummary } from "./offline";
 import { clearSave, saveGame } from "./save";
 import { newGameState, step } from "./sim";
-import type { BusinessId, Focus, GameState, Settings } from "./types";
+import type { BusinessId, Focus, GameState, MeetingLine, Settings } from "./types";
+import type { DecisionOutcome } from "./ai/apply";
+import type { MeetingDecision } from "./ai/types";
 
-export type PanelId = "crew" | "treasury" | "factory" | "build" | "log" | "settings" | "room" | "worker" | "revenue";
+export type PanelId = "crew" | "treasury" | "factory" | "build" | "log" | "settings" | "room" | "worker" | "revenue" | "chat" | "meeting";
+
+/** A meeting in progress (not saved; finished transcripts are kept in the game state). */
+export interface LiveMeeting {
+  topic: string;
+  attendees: string[];
+  lines: MeetingLine[];
+  /** how many lines have been revealed */
+  shown: number;
+  decisions: MeetingDecision[];
+  outcomes: DecisionOutcome[] | null;
+  /** waiting for the model */
+  busy: boolean;
+  source: "ai" | "script" | null;
+  status: "running" | "done";
+}
 
 export interface PanelState {
   id: PanelId;
@@ -33,6 +50,9 @@ interface Store {
   focus: { x: number; y: number; n: number } | null;
   toasts: Toast[];
   away: AwaySummary | null;
+  /** workers currently "typing" a reply */
+  chatPending: Record<string, boolean>;
+  meeting: LiveMeeting | null;
 
   setLoaded: (game: GameState | null, nowMs?: number) => void;
   startGame: (name: string, theme: ThemeId) => void;
@@ -84,6 +104,8 @@ export const useGame = create<Store>((set, get) => {
     focus: null,
     toasts: [],
     away: null,
+    chatPending: {},
+    meeting: null,
 
     setLoaded: (game, nowMs = Date.now()) => {
       if (!game) return set({ game: null, loaded: true });
@@ -128,7 +150,7 @@ export const useGame = create<Store>((set, get) => {
 
     resetGame: async () => {
       await clearSave();
-      set({ game: null, panel: null, selectedWorkerId: null, away: null, toasts: [] });
+      set({ game: null, panel: null, selectedWorkerId: null, away: null, toasts: [], chatPending: {}, meeting: null });
     },
 
     toast: (text, kind = "info", workerId) => {

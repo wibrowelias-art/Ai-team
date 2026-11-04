@@ -59,6 +59,7 @@ export function newGameState(name: string, theme: ThemeId, rng: Rng = Math.rando
     pendingEvents: [],
     chats: {},
     seq: 0,
+    meetings: [],
   };
   const bunc = workers.find((w) => w.id === "bunc") ?? workers[0];
   s.products = starterProducts(s, bunc, rng);
@@ -123,8 +124,18 @@ function arrive(w: Worker, s: GameState, rng: Rng): void {
     const room = findRoom(s.building, t.roomId);
     if (room) w.facing = ROOM_DEFS[room.type].spots[t.spot]?.face ?? w.facing;
   }
-  w.timer = w.activity === "visiting" ? 15 + rng() * 25 : w.activity === "resting" ? 10 : 40 + rng() * 80;
+  w.timer =
+    w.activity === "visiting"
+      ? 15 + rng() * 25
+      : w.activity === "resting"
+        ? 10
+        : w.activity === "meeting"
+          ? MEETING_MAX_MINUTES
+          : 40 + rng() * 80;
 }
+
+/** A meeting holds attendees at most this long; endMeeting releases them earlier. */
+export const MEETING_MAX_MINUTES = 240;
 
 function updateStats(w: Worker, dt: number): void {
   switch (w.activity) {
@@ -138,6 +149,7 @@ function updateStats(w: Worker, dt: number): void {
       break;
     case "walking":
     case "visiting":
+    case "meeting":
       w.energy = clamp(w.energy - 0.05 * dt);
       w.mood = clamp(w.mood + 0.01 * dt);
       break;
@@ -156,7 +168,8 @@ function stepWorkers(s: GameState, dt: number, rng: Rng): void {
       continue;
     }
     w.timer -= dt;
-    if (w.timer <= 0 || (w.energy < 25 && w.activity !== "resting")) decide(w, s, rng);
+    const exhausted = w.energy < 25 && w.activity !== "resting" && w.activity !== "meeting";
+    if (w.timer <= 0 || exhausted) decide(w, s, rng);
   }
 }
 

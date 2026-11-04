@@ -138,6 +138,7 @@ export function createWorker(seed: CrewSeed, floor: number, x: number, rng: () =
     cycleWork: 0,
     boost: null,
     lowLoyaltyDays: 0,
+    lastTextAt: -1e9,
     relationships,
     memories: [],
     earned: 0,

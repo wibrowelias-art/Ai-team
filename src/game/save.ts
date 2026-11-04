@@ -46,8 +46,12 @@ function migrateWorker(w: Worker): Worker {
     cycleWork: w.cycleWork ?? 0,
     boost: w.boost ?? null,
     lowLoyaltyDays: w.lowLoyaltyDays ?? 0,
+    lastTextAt: typeof w.lastTextAt === "number" ? w.lastTextAt : -1e9,
     relationships: w.relationships ?? {},
-    memories: w.memories ?? [],
+    memories: Array.isArray(w.memories) ? w.memories.slice(-30) : [],
+    // Meetings are not saved; anyone loaded mid-meeting heads back to work.
+    ...(w.activity === "meeting" ? { timer: 0 } : {}),
+    ...(w.target?.purpose === "meeting" ? { target: { ...w.target, purpose: "visiting" as const } } : {}),
   };
 }
 
@@ -63,6 +67,7 @@ export function migrate(input: GameState): GameState {
     pendingEvents: Array.isArray(input.pendingEvents) ? input.pendingEvents : [],
     chats: input.chats && typeof input.chats === "object" ? input.chats : {},
     seq: typeof input.seq === "number" ? input.seq : 0,
+    meetings: Array.isArray(input.meetings) ? input.meetings : [],
   };
   if (!s.economy || typeof s.economy !== "object") {
     // v1 → v2: the economy arrives.

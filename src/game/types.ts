@@ -53,9 +53,9 @@ export interface WorkerLook {
 
 export type RouteStep = { kind: "walk"; x: number } | { kind: "ride"; toFloor: number };
 
-export type Activity = "walking" | "working" | "resting" | "visiting" | "idle";
+export type Activity = "walking" | "working" | "resting" | "visiting" | "meeting" | "idle";
 export type Pose = "idle" | "walk" | "type" | "sleep" | "pool" | "cheer" | "angry";
-export type BubbleIcon = "idea" | "tired" | "paid" | "angry" | "alert";
+export type BubbleIcon = "idea" | "tired" | "paid" | "angry" | "alert" | "talk";
 
 export interface WorkerTarget {
   roomId: string;
@@ -105,6 +105,8 @@ export interface Worker {
   /** temporary output multiplier from a task budget */
   boost: { mult: number; until: number } | null;
   lowLoyaltyDays: number;
+  /** game minute of the last message this worker sent on their own */
+  lastTextAt: number;
 }
 
 export type ProductType = "tshirt" | "candle" | "poster" | "song" | "video";
@@ -214,6 +216,24 @@ export interface ChatMessage {
   from: "player" | "worker";
   text: string;
   t: number;
+  /** "ai" when the text came from the model, "script" for scripted lines */
+  source?: "ai" | "script";
+  /** a worker asking the boss for something */
+  request?: { type: "raise"; amount: number; status: "open" | "approved" | "declined" };
+}
+
+export interface MeetingLine {
+  speaker: string;
+  text: string;
+}
+
+export interface MeetingRecord {
+  id: string;
+  topic: string;
+  t: number;
+  attendees: string[];
+  lines: MeetingLine[];
+  decisions: string[];
 }
 
 export interface LogEntry {
@@ -237,6 +257,8 @@ export interface GameState {
   chats: Record<string, ChatMessage[]>;
   /** counter for ids */
   seq: number;
+  /** last few meeting transcripts */
+  meetings: MeetingRecord[];
   version: number;
   started: boolean;
   company: { name: string; theme: ThemeId };

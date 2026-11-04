@@ -12,7 +12,7 @@ import { drawPixelText, textWidth } from "./font";
 import { composeFrame, FRAME_H, FRAME_NAMES, FRAME_W, paintGrid, paletteFor, type FrameName } from "./sprites";
 import { drawStatic, staticKey } from "./scene";
 
-const BUBBLES: Record<BubbleIcon, string> = { idea: "💡", tired: "💤", paid: "💰", angry: "😡", alert: "❗" };
+const BUBBLES: Record<BubbleIcon, string> = { idea: "💡", tired: "💤", paid: "💰", angry: "😡", alert: "❗", talk: "💬" };
 
 interface Sheet {
   key: string;
