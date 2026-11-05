@@ -58,6 +58,8 @@ interface Store {
   /** workers currently "typing" a reply */
   chatPending: Record<string, boolean>;
   meeting: LiveMeeting | null;
+  /** graphics quality the canvas is currently using (2 high, 1 medium, 0 low) */
+  renderQuality: 0 | 1 | 2;
 
   setLoaded: (game: GameState | null, nowMs?: number) => void;
   startGame: (name: string, theme: ThemeId) => void;
@@ -124,8 +126,11 @@ export const useGame = create<Store>((set, get) => {
     away: null,
     chatPending: {},
     meeting: null,
+    renderQuality: 2,
 
     setLoaded: (game, nowMs = Date.now()) => {
+      // The player may have started a new company from the intro before the save finished loading.
+      if (get().game) return set({ loaded: true });
       if (!game) return set({ game: null, loaded: true });
       const { game: caughtUp, summary } = applyOffline(game, nowMs);
       set({ game: caughtUp, loaded: true, away: summary });
@@ -168,6 +173,7 @@ export const useGame = create<Store>((set, get) => {
 
     resetGame: async () => {
       await clearSave();
+      if (typeof document !== "undefined") delete document.documentElement.dataset.save;
       set({ game: null, panel: null, selectedWorkerId: null, away: null, toasts: [], chatPending: {}, meeting: null });
     },
 

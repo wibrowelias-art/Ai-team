@@ -52,7 +52,7 @@ export function newGameState(name: string, theme: ThemeId, rng: Rng = Math.rando
     building,
     workers,
     log: [{ t: START_MINUTE, text: `${company} opens its doors. Welcome, boss.`, kind: "system" }],
-    settings: { speed: 1, sound: true, scanlines: true, ai: true },
+    settings: { speed: 1, sound: true, scanlines: true, ai: true, graphics: "auto" },
     savedAt: Date.now(),
     economy: newEconomy(dayOf(START_MINUTE)),
     products: [],

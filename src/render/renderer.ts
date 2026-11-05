@@ -207,6 +207,8 @@ export class Renderer {
     dpr: number,
     t: number,
     selectedId: string | null,
+    /** 2 = full bloom, 1 = single bloom pass, 0 = no bloom and no dust */
+    quality: 0 | 1 | 2 = 2,
   ): void {
     this.ensureStatic(g);
     const dt = this.lastT ? Math.min(0.1, (t - this.lastT) / 1000) : 0;
@@ -227,7 +229,7 @@ export class Renderer {
     const sorted = [...g.workers].sort((a, b) => a.floor - b.floor || a.x - b.x);
     for (const w of sorted) this.drawWorker(w, g, t);
 
-    this.drawParticles(dt, H);
+    if (quality > 0) this.drawParticles(dt, H);
 
     // ---- composite to screen
     main.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -239,21 +241,29 @@ export class Renderer {
     main.imageSmoothingEnabled = false;
     main.drawImage(this.world, ox, oy, W * z, H * z);
 
-    // Bloom: two cheap blur levels
-    this.bloomActx.imageSmoothingEnabled = true;
-    this.bloomActx.clearRect(0, 0, this.bloomA.width, this.bloomA.height);
-    this.bloomActx.drawImage(this.emissive, 0, 0, this.bloomA.width, this.bloomA.height);
-    this.bloomBctx.imageSmoothingEnabled = true;
-    this.bloomBctx.clearRect(0, 0, this.bloomB.width, this.bloomB.height);
-    this.bloomBctx.drawImage(this.bloomA, 0, 0, this.bloomB.width, this.bloomB.height);
-    main.imageSmoothingEnabled = true;
-    main.globalCompositeOperation = "lighter";
-    main.globalAlpha = 0.55;
-    main.drawImage(this.bloomA, ox, oy, W * z, H * z);
-    main.globalAlpha = 0.45;
-    main.drawImage(this.bloomB, ox, oy, W * z, H * z);
-    main.globalAlpha = 1;
-    main.globalCompositeOperation = "source-over";
+    // Bloom: two cheap blur levels (one on medium quality, none on low).
+    // Each full-screen pass is the most expensive thing in a frame on weak GPUs.
+    if (quality > 0) {
+      this.bloomActx.imageSmoothingEnabled = true;
+      this.bloomActx.clearRect(0, 0, this.bloomA.width, this.bloomA.height);
+      this.bloomActx.drawImage(this.emissive, 0, 0, this.bloomA.width, this.bloomA.height);
+      main.imageSmoothingEnabled = true;
+      main.globalCompositeOperation = "lighter";
+      if (quality === 2) {
+        this.bloomBctx.imageSmoothingEnabled = true;
+        this.bloomBctx.clearRect(0, 0, this.bloomB.width, this.bloomB.height);
+        this.bloomBctx.drawImage(this.bloomA, 0, 0, this.bloomB.width, this.bloomB.height);
+        main.globalAlpha = 0.55;
+        main.drawImage(this.bloomA, ox, oy, W * z, H * z);
+        main.globalAlpha = 0.45;
+        main.drawImage(this.bloomB, ox, oy, W * z, H * z);
+      } else {
+        main.globalAlpha = 0.8;
+        main.drawImage(this.bloomA, ox, oy, W * z, H * z);
+      }
+      main.globalAlpha = 1;
+      main.globalCompositeOperation = "source-over";
+    }
 
     this.drawOverlays(main, g, cam, view, t, selectedId);
   }

@@ -262,6 +262,8 @@ export interface Settings {
   sound: boolean;
   scanlines: boolean;
   ai: boolean;
+  /** auto picks a level from measured frame times */
+  graphics: "auto" | "high" | "low";
 }
 
 export interface GameState {

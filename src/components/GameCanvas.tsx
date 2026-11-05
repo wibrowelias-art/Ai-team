@@ -8,6 +8,8 @@ import { clampCamera, initialCamera, panBy, screenToWorld, zoomAt, type Camera, 
 import { workerAt } from "@/render/hit";
 import { Renderer } from "@/render/renderer";
 
+type Quality = 0 | 1 | 2;
+
 const TAP_SLOP = 8;
 
 function pixelFont(): string {
@@ -36,10 +38,18 @@ export default function GameCanvas() {
 
     const worldSize = () => ({ w: WORLD_W, h: worldHeight(useGame.getState().game?.building.floors ?? 3) });
 
+    // Graphics quality: 2 high, 1 medium, 0 low. "auto" starts high and steps down when frames are slow.
+    const fixedQuality = (): Quality | null => {
+      const gfx = useGame.getState().game?.settings.graphics ?? "auto";
+      return gfx === "high" ? 2 : gfx === "low" ? 0 : null;
+    };
+    let quality: Quality = fixedQuality() ?? 2;
+    const maxDpr = (q: Quality) => (q === 2 ? 2 : q === 1 ? 1.5 : 1);
+
     const resize = () => {
       const r = wrap.getBoundingClientRect();
       view = { w: Math.max(1, r.width), h: Math.max(1, r.height) };
-      dpr = Math.min(2, window.devicePixelRatio || 1);
+      dpr = Math.min(maxDpr(quality), window.devicePixelRatio || 1);
       canvas.width = Math.round(view.w * dpr);
       canvas.height = Math.round(view.h * dpr);
       canvas.style.width = `${view.w}px`;
@@ -147,10 +157,39 @@ export default function GameCanvas() {
     // ---- loop
     let raf = 0;
     let last = performance.now();
+    let frameSum = 0;
+    let frameCount = 0;
+    let holdUntil = 0;
+    const setQuality = (q: Quality) => {
+      if (q === quality) return;
+      quality = q;
+      resize();
+      useGame.setState({ renderQuality: q });
+    };
+    useGame.setState({ renderQuality: quality });
+    const adapt = (frameMs: number, t: number) => {
+      const fixed = fixedQuality();
+      if (fixed !== null) return setQuality(fixed);
+      // Ignore hitches from tab switches and the like.
+      if (frameMs > 250) return;
+      frameSum += frameMs;
+      frameCount += 1;
+      if (frameCount < 60) return;
+      const avg = frameSum / frameCount;
+      frameSum = 0;
+      frameCount = 0;
+      if (avg > 24 && quality > 0 && t > holdUntil) {
+        setQuality((quality - 1) as Quality);
+        holdUntil = t + 3000;
+      }
+    };
+
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.25, Math.max(0, (t - last) / 1000));
+      const frameMs = t - last;
+      const dt = Math.min(0.25, Math.max(0, frameMs / 1000));
       last = t;
+      adapt(frameMs, t);
       const st = useGame.getState();
       st.tick(dt);
       const g = useGame.getState().game;
@@ -172,7 +211,7 @@ export default function GameCanvas() {
         const stuck = Math.hypot(cam.x - before.x, cam.y - before.y) < 0.01;
         if (stuck || Math.hypot(target.x - cam.x, target.y - cam.y) < 0.5) target = null;
       }
-      renderer.render(ctx, g, cam, view, dpr, t, st.selectedWorkerId);
+      renderer.render(ctx, g, cam, view, dpr, t, st.selectedWorkerId, quality);
     };
     raf = requestAnimationFrame(loop);
 

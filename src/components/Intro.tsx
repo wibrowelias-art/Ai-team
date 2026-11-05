@@ -11,7 +11,7 @@ export default function Intro() {
   const trim = THEMES[theme].trim;
 
   return (
-    <main className="relative flex h-full items-center justify-center overflow-y-auto bg-ink px-4 py-8" data-testid="intro">
+    <main className="relative flex h-full items-center justify-center overflow-y-auto bg-ink px-4 py-8" data-testid="intro" data-intro>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(155,92,255,0.18),transparent_60%)]" />
       <div className="scanlines absolute inset-0" />
       <form
@@ -59,7 +59,7 @@ export default function Intro() {
                   className="rounded border-2 py-3 font-pixel text-lg uppercase"
                   style={{
                     borderColor: active ? t.trim : "rgba(255,255,255,0.12)",
-                    color: t.trim,
+                    color: active ? "#ffffff" : t.trim,
                     boxShadow: active ? `0 0 14px -2px ${t.trim}` : undefined,
                     background: active ? t.trimDark : "transparent",
                   }}

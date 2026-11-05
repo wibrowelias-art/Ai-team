@@ -147,6 +147,6 @@ describe("save", () => {
     const g = fresh();
     const old = { ...g, settings: { speed: 2 } };
     const back = deserialize(JSON.stringify(old))!;
-    expect(back.settings).toEqual({ speed: 2, sound: true, scanlines: true, ai: true });
+    expect(back.settings).toEqual({ speed: 2, sound: true, scanlines: true, ai: true, graphics: "auto" });
   });
 });

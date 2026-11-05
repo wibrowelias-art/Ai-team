@@ -187,17 +187,21 @@ function Toggle({ label, value, onChange, testId }: { label: string; value: bool
 }
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
-  const game = useGame((s) => s.game);
+  // Only the settings object: subscribing to the whole game would re-render every frame.
+  const settings = useGame((st) => st.game?.settings);
+  const renderQuality = useGame((st) => st.renderQuality);
   const setSetting = useGame((s) => s.setSetting);
   const setSpeed = useGame((s) => s.setSpeed);
   const replaceGame = useGame((s) => s.replaceGame);
   const resetGame = useGame((s) => s.resetGame);
   const fileRef = useRef<HTMLInputElement>(null);
-  if (!game) return null;
-  const s = game.settings;
+  if (!settings) return null;
+  const s = settings;
 
   const exportSave = () => {
-    const blob = new Blob([serialize(useGame.getState().game ?? game)], { type: "application/json" });
+    const game = useGame.getState().game;
+    if (!game) return;
+    const blob = new Blob([serialize(game)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -231,6 +235,24 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
+      </Section>
+      <Section title="Graphics">
+        <div className="grid grid-cols-3 gap-2">
+          {(["auto", "high", "low"] as const).map((gq) => (
+            <button
+              key={gq}
+              type="button"
+              onClick={() => setSetting("graphics", gq)}
+              className={`rounded border py-1.5 font-pixel text-lg capitalize ${s.graphics === gq ? "border-cyan text-cyan neon-border" : "border-white/15 text-white/60"}`}
+              data-testid={`graphics-${gq}`}
+            >
+              {gq}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-white/40">
+          Now rendering at {["low", "medium", "high"][renderQuality]} quality.{s.graphics === "auto" ? " Auto lowers glow and resolution if frames get slow." : ""}
+        </p>
       </Section>
       <Section title="Options">
         <Toggle label="Sound" value={s.sound} onChange={(v) => setSetting("sound", v)} />

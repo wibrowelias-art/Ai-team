@@ -32,6 +32,18 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Before hydration an inline script sets html[data-save] for returning players:
+   they see the splash instead of a flash of the intro. */
+[data-splash] {
+  display: none;
+}
+html[data-save] [data-splash] {
+  display: flex;
+}
+html[data-save] [data-intro] {
+  display: none;
+}
+
 .pixelated {
   image-rendering: pixelated;
   image-rendering: crisp-edges;

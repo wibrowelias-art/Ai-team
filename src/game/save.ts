@@ -6,12 +6,23 @@ import { starterProducts } from "./products";
 import { dayOf } from "./time";
 import type { Focus, GameState, Settings, Worker } from "./types";
 
-const DEFAULT_SETTINGS: Settings = { speed: 1, sound: true, scanlines: true, ai: true };
+const DEFAULT_SETTINGS: Settings = { speed: 1, sound: true, scanlines: true, ai: true, graphics: "auto" };
 
 const DB_NAME = "neon-hq";
 const STORE = "saves";
 const KEY = "slot1";
 const LS_KEY = "neon-hq-save-v1";
+/** Tiny flag read by an inline script before first paint (see app/layout.tsx). */
+const FLAG_KEY = "neon-hq-has-save";
+
+function setFlag(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(FLAG_KEY, "1");
+    else localStorage.removeItem(FLAG_KEY);
+  } catch {
+    /* storage blocked */
+  }
+}
 
 /** Basic structural validation so a corrupt or foreign file never crashes the game. */
 export function isValidSave(data: unknown): data is GameState {
@@ -205,11 +216,13 @@ export async function saveGame(state: GameState): Promise<void> {
   const text = serialize({ ...state, savedAt: Date.now() });
   const ok = await idbSet(text);
   if (!ok) lsSet(text);
+  setFlag(true);
 }
 
 /** Synchronous save for page unload, where async IndexedDB writes may not finish. */
 export function saveGameSync(state: GameState): void {
   lsSet(serialize({ ...state, savedAt: Date.now() }));
+  setFlag(true);
 }
 
 /** Load the newest valid save from either store. */
@@ -224,4 +237,5 @@ export async function loadGame(): Promise<GameState | null> {
 export async function clearSave(): Promise<void> {
   await idbSet(null);
   lsSet(null);
+  setFlag(false);
 }

@@ -12,18 +12,23 @@ export const metadata: Metadata = {
   applicationName: "NEON HQ",
 };
 
+// Page zoom stays allowed (accessibility); the canvas handles its own pinch zoom with touch-action: none.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#0a0a12",
 };
 
+const HAS_SAVE_SCRIPT = `try{if(localStorage.getItem("neon-hq-has-save"))document.documentElement.dataset.save="1"}catch(e){}`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${vt323.variable} ${pressStart.variable} ${inter.variable} h-full`}>
+    <html lang="en" className={`${vt323.variable} ${pressStart.variable} ${inter.variable} h-full`} suppressHydrationWarning>
+      <head>
+        {/* Runs before first paint: returning players get the splash, not a flash of the intro. */}
+        <script dangerouslySetInnerHTML={{ __html: HAS_SAVE_SCRIPT }} />
+      </head>
       <body className="h-full overflow-hidden antialiased">{children}</body>
     </html>
   );
