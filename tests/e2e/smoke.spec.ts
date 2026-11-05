@@ -78,6 +78,10 @@ test("mobile: a $200 bonus to Bunc lowers cash by $200 and Bunc texts thanks wit
   const n = (s: string) => Number(s.replace(/[^0-9.-]/g, ""));
   expect(n(before) - n(after)).toBe(200);
   await expect(page.getByTestId("worker-messages")).toBeVisible();
+  // The cheer (and coin) sound played.
+  const played = await page.evaluate(() => (window as unknown as { __neonSfx?: string[] }).__neonSfx ?? []);
+  expect(played).toContain("cheer");
+  expect(played).toContain("coin");
 });
 
 test("mobile: Treasury, Revenue Bay and Factory show the economy", async ({ page }) => {

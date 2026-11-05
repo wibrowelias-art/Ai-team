@@ -13,6 +13,7 @@ import { AwayModal, EventModal, Toasts } from "./Overlays";
 import { FactoryPanel, LogPanel, RevenuePanel, RoomPanel, SettingsPanel, TreasuryPanel } from "./panels/OtherPanels";
 import { BuildPanel, HirePanel } from "./panels/BuildPanels";
 import ChatPanel from "./panels/ChatPanel";
+import SoundDirector from "./SoundDirector";
 import { advanceMeeting, MEETING_LINE_INTERVAL_MS, workerTextTick } from "@/game/aiStore";
 
 const AUTOSAVE_MS = 10_000;
@@ -99,6 +100,8 @@ function TopControls() {
   const speed = useGame((s) => s.game?.settings.speed ?? 1);
   const setSpeed = useGame((s) => s.setSpeed);
   const openPanel = useGame((s) => s.openPanel);
+  const sound = useGame((s) => s.game?.settings.sound ?? true);
+  const setSetting = useGame((s) => s.setSetting);
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between p-2">
       <div className="pointer-events-auto flex overflow-hidden rounded border border-white/15 bg-ink/80">
@@ -116,15 +119,27 @@ function TopControls() {
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        onClick={() => openPanel({ id: "settings" })}
-        aria-label="Settings"
-        data-testid="open-settings"
-        className="pointer-events-auto flex h-8 w-9 items-center justify-center rounded border border-white/15 bg-ink/80 text-lg text-white/70"
-      >
-        ⚙
-      </button>
+      <div className="pointer-events-auto flex gap-1.5">
+        <button
+          type="button"
+          onClick={() => setSetting("sound", !sound)}
+          aria-label={sound ? "Mute sound" : "Unmute sound"}
+          aria-pressed={!sound}
+          data-testid="mute"
+          className="flex h-8 w-9 items-center justify-center rounded border border-white/15 bg-ink/80 text-base text-white/70"
+        >
+          {sound ? "🔊" : "🔇"}
+        </button>
+        <button
+          type="button"
+          onClick={() => openPanel({ id: "settings" })}
+          aria-label="Settings"
+          data-testid="open-settings"
+          className="flex h-8 w-9 items-center justify-center rounded border border-white/15 bg-ink/80 text-lg text-white/70"
+        >
+          ⚙
+        </button>
+      </div>
     </div>
   );
 }
@@ -164,6 +179,7 @@ export default function Game() {
         <TopControls />
         <Toasts />
         <AiRunner />
+        <SoundDirector />
         <Panels />
         <EventModal />
         <AwayModal />
