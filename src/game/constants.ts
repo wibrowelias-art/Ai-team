@@ -63,6 +63,8 @@ export const WALK_SPEED = 22; // px / game minute
 export const ELEVATOR_SPEED = 40; // px / game minute
 
 export const START_CASH = 5000;
+/** Launch hype (4x revenue) lasts until this game minute: three cycles after opening. */
+export const LAUNCH_HYPE_MINUTES = START_MINUTE + 3 * 60 + 1;
 export const SAVE_VERSION = 3;
 export const SPEEDS = [0, 1, 2, 5] as const;
 export type Speed = (typeof SPEEDS)[number];

@@ -83,7 +83,6 @@ function decide(w: Worker, s: GameState, rng: Rng): void {
     if (rest) {
       sendWorker(w, rest.room, rest.spot, "resting");
       bubble(w, "tired", now, 10);
-      log(s, `${w.name} is wiped out and heads to the ${ROOM_DEFS[rest.room.type].name}.`, "info");
       return;
     }
   }
@@ -157,6 +156,8 @@ function updateStats(w: Worker, dt: number, fx: Effects): void {
     case "working":
       w.energy = clamp(w.energy - 0.11 * fx.energyDrain * dt);
       w.cycleWork += dt;
+      // Visible task bar: fills about once a day at full mood (missions overwrite it with real progress).
+      w.taskProgress = (w.taskProgress + dt * (0.055 + w.skill / 3000) * (0.5 + w.mood / 200)) % 100;
       break;
     case "resting":
       w.energy = clamp(w.energy + 0.7 * fx.restRate * dt);

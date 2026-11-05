@@ -194,6 +194,7 @@ export function Toasts() {
             <span className="min-w-0">
               {w && <span className="mr-1 font-pixel text-[15px] text-cyan">{w.name}:</span>}
               {t.text}
+              {t.count && t.count > 1 ? <span className="ml-1 text-white/50">· {t.count} new</span> : null}
             </span>
           </button>
         );

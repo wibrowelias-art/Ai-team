@@ -3,7 +3,7 @@ import * as A from "@/game/actions";
 import { FOCUS_ROOM } from "@/game/business";
 import { COMPUTE_PER_WORKER, CYCLES_PER_DAY, RENT_PER_FLOOR, START_MINUTE } from "@/game/constants";
 import { draftOf } from "@/game/draft";
-import { budgetFactor, demandFactor, fairSalary, productUnits, runCycle, runDay, workerOutput } from "@/game/economy";
+import { budgetFactor, demandFactor, fairSalary, productUnits, rentFor, runCycle, runDay, workerOutput } from "@/game/economy";
 import { resolveEvent, triggerEvent } from "@/game/events";
 import { MISSIONS } from "@/game/missions";
 import { applyOffline } from "@/game/offline";
@@ -118,8 +118,8 @@ describe("days", () => {
     runDay(d, rng());
     expect(d.economy.history).toHaveLength(1);
     expect(d.economy.history[0].costs.salaries).toBe(payroll);
-    expect(d.economy.history[0].costs.rent).toBe(3 * RENT_PER_FLOOR);
-    expect(d.cash).toBe(cash0 - payroll - 3 * RENT_PER_FLOOR);
+    expect(d.economy.history[0].costs.rent).toBe(rentFor(3));
+    expect(d.cash).toBe(cash0 - payroll - rentFor(3));
     for (let i = 0; i < 40; i++) {
       d = draftOf(d);
       runDay(d, rng());
@@ -341,7 +341,7 @@ describe("events", () => {
     const d = draftOf(fresh());
     d.products = d.products.slice(0, 1);
     triggerEvent(d, "viral", rng());
-    const mod = d.economy.modifiers[0];
+    const mod = d.economy.modifiers.find((m) => m.label.startsWith("Viral"))!;
     expect(mod.mult).toBe(10);
     expect(mod.productId).toBe(d.products[0].id);
   });

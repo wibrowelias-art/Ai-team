@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { addFloor, buildOptions, buildRoom, buyUpgrade, upgradeRoom } from "@/game/build";
 import { findRoom, floorBase, roomRect } from "@/game/building";
 import { draftOf } from "@/game/draft";
-import { runCycle, runDay, workerOutput } from "@/game/economy";
+import { rentFor, runCycle, runDay, workerOutput } from "@/game/economy";
 import { resolveEvent, triggerEvent } from "@/game/events";
 import { ensureCandidates, fire, hire, MAX_CREW, rerollCandidates } from "@/game/hiring";
 import { deserialize } from "@/game/save";
@@ -145,7 +145,7 @@ describe("shop upgrades and room effects", () => {
     };
     const plain = run(fresh());
     const studio = run(buildRoom(fresh(), "recording_studio").state);
-    expect(studio).toBeCloseTo(plain * 1.25, 1);
+    expect(studio / plain).toBeCloseTo(1.25, 2);
   });
 
   it("the Vault halves event costs", () => {
@@ -166,7 +166,7 @@ describe("shop upgrades and room effects", () => {
     const moodBefore = d.workers.map((w) => w.mood);
     runDay(d, rng());
     // Interest is paid on what is left after midnight payroll and rent.
-    const afterPayroll = g.cash - g.workers.reduce((a, w) => a + w.salary, 0) - 4 * 150;
+    const afterPayroll = g.cash - g.workers.reduce((a, w) => a + w.salary, 0) - rentFor(4);
     expect(d.economy.otherIncome - other).toBe(Math.round(Math.min(400, afterPayroll * 0.004)));
     expect(d.log.some((l) => l.text.includes("Trading Desk"))).toBe(true);
     expect(d.workers[0].mood).toBeGreaterThan(moodBefore[0]);

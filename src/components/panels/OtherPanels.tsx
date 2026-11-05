@@ -19,9 +19,17 @@ import { usePolledGame } from "../usePolled";
 export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) {
   const game = usePolledGame();
   const openPanel = useGame((s) => s.openPanel);
+  const meetingLive = useGame((s) => !!s.meeting);
   const room = game ? findRoom(game.building, id) : undefined;
   if (!game || !room) return null;
   const def = ROOM_DEFS[room.type];
+  if (room.type === "WAR_ROOM" && meetingLive) {
+    return (
+      <Panel title="Meeting" accent={def.color} onClose={onClose} testId="panel-room">
+        <MeetingContent game={game} />
+      </Panel>
+    );
+  }
   const here = game.workers.filter((w) => w.target?.roomId === room.id && w.activity !== "walking");
   const heading = game.workers.filter((w) => w.target?.roomId === room.id && w.activity === "walking");
 

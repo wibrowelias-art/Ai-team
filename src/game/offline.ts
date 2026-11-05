@@ -39,7 +39,7 @@ export function applyOffline(game: GameState, nowMs: number, rng: Rng = Math.ran
 
   // New log lines since the save (the log is capped, so fall back to time filtering).
   const newLines = after.log.length >= logBefore ? after.log.filter((l) => l.t > game.minutes) : [];
-  const events = newLines.filter((l) => l.text.startsWith("Event:")).map((l) => l.text.replace("Event: ", ""));
+  const events = newLines.filter((l) => l.text.startsWith("⚡ ")).map((l) => l.text.slice(2));
   const leftCrew = game.workers.filter((w) => !after.workers.some((x) => x.id === w.id)).map((w) => w.name);
 
   return {

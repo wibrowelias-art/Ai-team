@@ -16,6 +16,11 @@ export const EVENT_TIMEOUT_MIN = 12 * 60;
 export const FOREVER = 1e12;
 const MAX_PENDING = 2;
 
+/** Event title without its emoji and trailing punctuation, for log lines. */
+export function plainTitle(title: string): string {
+  return title.replace(/[^\w\s'-]/gu, "").replace(/\s+/g, " ").trim();
+}
+
 type Kind = GameEvent["kind"];
 
 function pick<T>(arr: T[], rng: Rng): T {
@@ -82,7 +87,7 @@ function create(s: GameState, kind: Kind, rng: Rng): GameEvent | null {
       };
     case "investor": {
       if (s.economy.investorShare >= 0.4) return null;
-      const amount = roundTo(1500 + avgDailyRevenue(s) * 3, 100);
+      const amount = Math.min(25000, roundTo(1500 + avgDailyRevenue(s) * 3, 100));
       return {
         ...base,
         title: "Investor offer 💼",
@@ -185,7 +190,7 @@ export function triggerEvent(s: GameState, kind: Kind, rng: Rng, offline = false
   const ev = create(s, kind, rng);
   if (!ev) return null;
   s.pendingEvents = [...s.pendingEvents, ev];
-  log(s, `Event: ${ev.title}`, "system");
+  // Logged once, when it is resolved (see resolveEvent).
   if (offline) resolveEvent(s, ev.id, ev.defaultChoice, rng);
   return ev;
 }
@@ -311,6 +316,6 @@ export function resolveEvent(s: GameState, eventId: string, choice: number, rng:
     }
   }
   s.pendingEvents = s.pendingEvents.filter((e) => e.id !== eventId);
-  log(s, `${ev.title.replace(/[^\w\s!'-]/g, "").trim()}: ${ev.choices[choice].label}.`, "info");
+  log(s, `⚡ ${plainTitle(ev.title)}: ${ev.choices[choice].label}.`, "system");
   return null;
 }

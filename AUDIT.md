@@ -6,15 +6,15 @@ Items are ordered by impact. Ticked = fixed.
 
 ## A. Bugs (things that are wrong)
 
-- [ ] A1. **Task progress is stuck at 0** for everyone except workers on a mission. `updateStats` stopped advancing `taskProgress` when cycle work tracking was added. Worker panel shows "TASK 0" forever.
-- [ ] A2. **Operations workers earn $0.** Matt's "Earned" is $0 after 10 days even though ops boosts every business. Credit ops a share of revenue.
-- [ ] A3. **Name tags overlap** when two workers share a desk area ("MATTDENNIS", "FINZIGGY", "MAVERICKBUNC"). Tags need to push apart.
-- [ ] A4. **Economy snowballs**: 30‑day run ends at $1.16M for a sensible player, $739K for a reckless one (huge bonuses, pay cuts, hiring everyone, floors on day 1) and $120K for a player who never touches anything. Nothing can go bankrupt. Fan/follower growth is proportional to itself (exponential). Needs saturation, higher late costs and real downside for reckless play.
-- [ ] A5. **Early game too slow**: at 1x the first $1,000 of revenue takes ~10 real minutes. Target is under 3.
+- [x] A1. **Task progress is stuck at 0** for everyone except workers on a mission. `updateStats` stopped advancing `taskProgress` when cycle work tracking was added. Worker panel shows "TASK 0" forever.
+- [x] A2. **Operations workers earn $0.** Matt's "Earned" is $0 after 10 days even though ops boosts every business. Credit ops a share of revenue.
+- [x] A3. **Name tags overlap** when two workers share a desk area ("MATTDENNIS", "FINZIGGY", "MAVERICKBUNC"). Tags need to push apart.
+- [x] A4. **Economy snowballs**: 30‑day run ends at $1.16M for a sensible player, $739K for a reckless one (huge bonuses, pay cuts, hiring everyone, floors on day 1) and $120K for a player who never touches anything. Nothing can go bankrupt. Fan/follower growth is proportional to itself (exponential). Needs saturation, higher late costs and real downside for reckless play.
+- [x] A5. **Early game too slow**: at 1x the first $1,000 of revenue takes ~10 real minutes. Target is under 3.
 - [ ] A6. **Event modal blocks the whole screen** including speed/pause while it waits. Acceptable, but the modal must then be obviously an event (it has no icon or color coding per kind) and show up on the log with its outcome exactly once (currently "Event: Worker drama 💢" and then "Worker drama: Sort it out…" as two lines).
-- [ ] A7. **Default phone zoom shows workers ~25 px tall.** Spec says ≥ 40 px. Frame the building taller (crop the sky) and let the HUD float.
-- [ ] A8. Meeting room panel shows the room blurb, floor, level and upgrade button **above** a live meeting. The live meeting should take the whole panel.
-- [ ] A9. Mission progress bar in the Command panel can exceed 100% visually when progress > target (uses raw ratio).
+- [x] A7. **Default phone zoom shows workers ~25 px tall.** Spec says ≥ 40 px. Frame the building taller (crop the sky) and let the HUD float.
+- [x] A8. Meeting room panel shows the room blurb, floor, level and upgrade button **above** a live meeting. The live meeting should take the whole panel.
+- [x] A9. Mission progress bar: checked, `StatBar` already clamps to 100. Not a bug.
 
 ## B. Placeholder / leftover text
 
@@ -22,7 +22,7 @@ Items are ordered by impact. Ticked = fixed.
 - [ ] B2. Server Room panel: "Server upgrades arrive in Phase 4."
 - [ ] B3. The `Soon` component (dashed "coming soon" box) still exists; remove it and every use.
 - [ ] B4. Meeting header shows "scripted" / "live" badge. It exposes the fallback. Remove.
-- [ ] B5. Log: "Viral hit!: Celebrate with the crew." (double punctuation from stripping emoji). Format event outcomes properly.
+- [x] B5. Log: "Viral hit!: Celebrate with the crew." (double punctuation from stripping emoji). Format event outcomes properly.
 - [ ] B6. Room name "Chill / Bar" vs sign "CHILL BAR" vs blurb. Use "Chill Bar" everywhere.
 - [ ] B7. Factory: "Lines unlocked: 👕 🎵 🎬 🕯️ 🖼️ · Research unlocks more." reads like debug output. Make it a proper row with labels.
 - [ ] B8. Treasury multiplier "X1.13" (uppercase X from the pixel font). Use "×1.13" in the sans font.
@@ -32,10 +32,10 @@ Items are ordered by impact. Ticked = fixed.
 
 ## C. Spam and noise
 
-- [ ] C1. **Log is flooded** with "X is wiped out and heads to the Chill / Bar." (10 workers × several times a day). Drop it from the log; keep the 💤 bubble.
-- [ ] C2. **Chat spam**: Bunc texts "design done!!! pls approve (…)" and then "LETS GOOO 🚀🚀" on every approval. Vary the lines, skip the thank-you when auto-approving, and group repeats.
-- [ ] C3. **Toast stack**: every worker text becomes a toast; with 10 workers they pile up over the tutorial card. Group repeats ("Bunc: 3 designs ready") and cap at 3.
-- [ ] C4. Log shows "Event: …" and the chosen outcome as two entries; merge into one line when resolved.
+- [x] C1. **Log is flooded** with "X is wiped out and heads to the Chill / Bar." (10 workers × several times a day). Drop it from the log; keep the 💤 bubble.
+- [x] C2. **Chat spam**: Bunc texts "design done!!! pls approve (…)" and then "LETS GOOO 🚀🚀" on every approval. Vary the lines, skip the thank-you when auto-approving, and group repeats.
+- [x] C3. **Toast stack**: every worker text becomes a toast; with 10 workers they pile up over the tutorial card. Group repeats ("Bunc: 3 designs ready") and cap at 3.
+- [x] C4. Log shows "Event: …" and the chosen outcome as two entries; merge into one line when resolved.
 
 ## D. Visual design
 

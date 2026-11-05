@@ -43,6 +43,8 @@ export interface Toast {
   text: string;
   kind: "info" | "error" | "message";
   workerId?: string;
+  /** how many messages this toast stands for (grouped repeats) */
+  count?: number;
 }
 
 interface Store {
@@ -178,8 +180,16 @@ export const useGame = create<Store>((set, get) => {
     },
 
     toast: (text, kind = "info", workerId) => {
+      const cur = get().toasts;
+      // A worker who texts again while their last toast is still up gets one grouped toast.
+      const i = kind === "message" && workerId ? cur.findIndex((t) => t.kind === "message" && t.workerId === workerId) : -1;
+      if (i >= 0) {
+        const next = [...cur];
+        next[i] = { ...cur[i], id: ++toastSeq, text, count: (cur[i].count ?? 1) + 1 };
+        return set({ toasts: next });
+      }
       const t: Toast = { id: ++toastSeq, text, kind, workerId };
-      set({ toasts: [...get().toasts.slice(-3), t] });
+      set({ toasts: [...cur.slice(-2), t] });
     },
 
     dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),

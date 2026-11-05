@@ -835,7 +835,8 @@ export class Renderer {
     const bubbleSize = Math.round(Math.max(12, Math.min(26, z * 5)));
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    for (const w of g.workers) {
+    const placed: { left: number; right: number; top: number; bottom: number }[] = [];
+    for (const w of [...g.workers].sort((a, b) => a.x - b.x)) {
       const base = floorBase(w.floor) + w.y;
       const lying = w.activity === "resting" && this.spotKind(w, g) === "couch";
       const headY = lying ? base - 10 : base - FRAME_H - 1;
@@ -875,7 +876,16 @@ export class Renderer {
         tw = ctx.measureText(label).width;
         this.tagWidths.set(k, tw);
       }
-      const tagY = Math.round(p.y - 2);
+      // Tags that would overlap a neighbour's tag step up until they are clear.
+      let tagY = Math.round(p.y - 2);
+      const left = p.x - tw / 2 - 3;
+      const right = p.x + tw / 2 + 3;
+      for (let guard = 0; guard < 6; guard++) {
+        const hit = placed.find((r) => left < r.right && right > r.left && tagY - tagSize < r.bottom && tagY + 1 > r.top);
+        if (!hit) break;
+        tagY = hit.top - 3;
+      }
+      placed.push({ left, right, top: tagY - tagSize, bottom: tagY + 1 });
       ctx.fillStyle = "rgba(8,7,13,0.72)";
       ctx.fillRect(Math.round(p.x - tw / 2 - 3), tagY - tagSize, Math.round(tw + 6), tagSize + 1);
       ctx.fillStyle = selected ? COLORS.cyan : COLORS.white;

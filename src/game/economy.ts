@@ -3,7 +3,7 @@
  * All functions mutate a draft that the caller owns (see draft.ts).
  */
 import { BUSINESSES, PRODUCT_INFO, RESEARCH_STEP, RESEARCH_UNLOCKS } from "./business";
-import { COMPUTE_PER_WORKER, CYCLES_PER_DAY, DEFAULT_BUDGET, RENT_PER_FLOOR } from "./constants";
+import { COMPUTE_PER_WORKER, CYCLES_PER_DAY, DEFAULT_BUDGET, LAUNCH_HYPE_MINUTES, RENT_PER_FLOOR } from "./constants";
 import { bubble, clamp, earn, log, newLedger, otherIncome, say, spend } from "./draft";
 import { expireEvents, maybeTriggerEvent, removeWorker } from "./events";
 import { line } from "./lines";
@@ -32,7 +32,8 @@ export function newEconomy(day: number): Economy {
     budgets,
     today: newLedger(day),
     history: [],
-    modifiers: [],
+    // Opening-week buzz: the first few cycles pay well so a new player sees money move right away.
+    modifiers: [{ id: "launch", label: "Launch hype", business: "all", mult: 4, until: LAUNCH_HYPE_MINUTES }],
     investorShare: 0,
     unlocked: ["tshirt", "song", "video"],
     autoApprove: false,
@@ -52,6 +53,33 @@ export function workerOutput(w: Worker, now: number): number {
   const mood = 0.6 + w.mood / 250;
   const boost = w.boost && w.boost.until > now ? w.boost.mult : 1;
   return workFrac * skill * mood * boost;
+}
+
+/**
+ * Per-cycle audience growth from one unit of output. Small audiences grow by ~0.4% of their
+ * size per unit; past ~30k the gain flattens, so fans and followers don't compound forever.
+ */
+export function audienceGrowth(size: number): number {
+  const k = size / 25000;
+  return (size * 0.004) / (1 + k * k);
+}
+
+/** Revenue scales with the audience, but a huge audience pays less per head. */
+export function payingAudience(size: number): number {
+  return size / (1 + size / 60000);
+}
+
+/** Research efficiency stops at +60%; after that, breakthroughs pay a cash grant instead. */
+export const MAX_EFFICIENCY = 0.6;
+
+/** AI compute per worker per cycle: bigger crews need pricier infrastructure. */
+export function computePerWorker(crew: number): number {
+  return COMPUTE_PER_WORKER + Math.max(0, crew - 7) * 0.75;
+}
+
+/** Daily rent: each extra floor costs more than the last. */
+export function rentFor(floors: number): number {
+  return Math.round(RENT_PER_FLOOR * floors * (1 + 0.15 * Math.max(0, floors - 3)));
 }
 
 /** Diminishing returns on department budget ($/day). */
@@ -148,14 +176,15 @@ export function runCycle(s: GameState, rng: Rng, opts: CycleOptions): CycleRepor
   // Music: fans stream; producers grow the fanbase.
   const M = sumOut("music");
   const music = e.businesses.music;
-  music.fans += (M * music.fans * 0.004 + M * 5) * budgetFactor(e.budgets.music) * fx.musicGrowth;
-  revenue.music = outage ? 0 : music.fans * 0.003 * demand * common("music") * fx.musicIncome;
+  // Audiences grow fast when small and saturate as they get big (see audienceGrowth).
+  music.fans += (M * audienceGrowth(music.fans) + M * 5) * budgetFactor(e.budgets.music) * fx.musicGrowth;
+  revenue.music = outage ? 0 : payingAudience(music.fans) * 0.003 * demand * common("music") * fx.musicIncome;
 
   // Social: followers bring sponsorships and lift demand everywhere.
   const So = sumOut("social");
   const social = e.businesses.social;
-  social.followers += (So * social.followers * 0.004 + So * 8) * budgetFactor(e.budgets.social) * fx.socialGrowth;
-  revenue.social = social.followers * 0.002 * common("social") * fx.socialIncome;
+  social.followers += (So * audienceGrowth(social.followers) + So * 8) * budgetFactor(e.budgets.social) * fx.socialGrowth;
+  revenue.social = payingAudience(social.followers) * 0.002 * common("social") * fx.socialIncome;
 
   // Research: consulting income + points that unlock product lines.
   const R = sumOut("research");
@@ -188,9 +217,16 @@ export function runCycle(s: GameState, rng: Rng, opts: CycleOptions): CycleRepor
     if (total > 0) for (const w of contributors) w.earned += (amount * (outputs.get(w.id) ?? 0)) / total;
   }
   e.lastCycleRevenue = BUSINESSES.reduce((a, b) => a + revenue[b], 0);
+  // Operations lifted every business by (ops - 1): credit that slice to the ops crew.
+  const opsCrew = byFocus.ops ?? [];
+  const opsOut = opsCrew.reduce((a, w) => a + (outputs.get(w.id) ?? 0), 0);
+  if (opsOut > 0) {
+    const lift = e.lastCycleRevenue * (1 - 1 / ops);
+    for (const w of opsCrew) w.earned += (lift * (outputs.get(w.id) ?? 0)) / opsOut;
+  }
 
   // Running costs: AI compute and department budgets.
-  for (const w of s.workers) spend(s, "compute", COMPUTE_PER_WORKER, w);
+  for (const w of s.workers) spend(s, "compute", computePerWorker(s.workers.length), w);
   for (const b of BUSINESSES) spend(s, "budgets", e.budgets[b] / CYCLES_PER_DAY);
 
   runFactory(s, outputs, rng, { offline: opts.offline, paused: outage });
@@ -207,7 +243,11 @@ export function runCycle(s: GameState, rng: Rng, opts: CycleOptions): CycleRepor
 function unlockNext(s: GameState, index: number): void {
   const research = s.economy.businesses.research;
   const next = RESEARCH_UNLOCKS[index] ?? "efficiency";
-  if (next === "efficiency") {
+  if (next === "efficiency" && research.efficiency >= MAX_EFFICIENCY - 1e-9) {
+    const grant = 800;
+    otherIncome(s, grant);
+    log(s, `🔬 Research grant: a lab paid $${grant} for the crew's findings.`, "good");
+  } else if (next === "efficiency") {
     research.efficiency = Math.round((research.efficiency + 0.05) * 100) / 100;
     log(s, `🔬 Research breakthrough: +5% efficiency for every business.`, "good");
   } else if (!s.economy.unlocked.includes(next)) {
@@ -227,7 +267,7 @@ export function fairSalary(skill: number): number {
 export function runDay(s: GameState, rng: Rng): void {
   const e = s.economy;
   for (const w of s.workers) spend(s, "salaries", w.salary, w);
-  spend(s, "rent", s.building.floors * RENT_PER_FLOOR);
+  spend(s, "rent", rentFor(s.building.floors));
 
   const bounced = s.cash < 0;
   if (bounced) {

@@ -7,6 +7,11 @@ import { useGame } from "@/game/store";
 import { clampCamera, initialCamera, MAX_ZOOM, panBy, screenToWorld, zoomAt, type Camera, type View } from "@/render/camera";
 import { workerAt } from "@/render/hit";
 import { Renderer, type Quality } from "@/render/renderer";
+import { groundLine } from "@/render/scene";
+import { FRAME_H } from "@/render/sprites";
+
+/** Workers should be at least this tall on a phone at the default zoom. */
+const MIN_WORKER_PX = 40;
 
 const TAP_SLOP = 8;
 const DOUBLE_TAP_MS = 320;
@@ -57,7 +62,22 @@ export default function GameCanvas({ insets = { top: 0, bottom: 0 } }: { insets?
 
     const floors = () => useGame.getState().game?.building.floors ?? 3;
     const worldSize = () => ({ w: WORLD_W, h: worldHeight(floors()) });
-    const frame = () => initialCamera(view, worldSize(), buildingBand(floors()), buildingSpan(), insetsRef.current);
+    /**
+     * Default framing. Phones: zoom so workers are at least ~40 px tall, anchored on the street
+     * floors where the crew starts. Wide screens: the whole tower.
+     */
+    const frame = () => {
+      const fit = initialCamera(view, worldSize(), buildingBand(floors()), buildingSpan(), insetsRef.current);
+      const minZoom = MIN_WORKER_PX / FRAME_H;
+      if (view.w >= 768 || fit.zoom >= minZoom) return fit;
+      const ins = insetsRef.current;
+      const visibleBottom = view.h - ins.bottom;
+      const groundY = groundLine(floors()) + 12;
+      // Put the street a little above the bottom bar and center on the building.
+      const y = groundY - (visibleBottom - view.h / 2) / minZoom;
+      const span = buildingSpan();
+      return clampCamera({ x: (span.x0 + span.x1) / 2, y, zoom: minZoom }, view, worldSize());
+    };
 
     // Graphics quality: 2 high, 1 medium, 0 low. "auto" starts high and steps down when frames are slow.
     const fixedQuality = (): Quality | null => {
@@ -179,8 +199,14 @@ export default function GameCanvas({ insets = { top: 0, bottom: 0 } }: { insets?
       const isDouble = lastTap && !lastTap.hit && now - lastTap.t < DOUBLE_TAP_MS && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 30;
       lastTap = { ...p, t: now, hit: !!(worker || room) };
       if (!worker && !room && isDouble) {
-        const fit = frame().zoom;
-        zoomTo(cam.zoom < fit * 1.6 ? fit * 2.2 : fit, p.x, p.y);
+        const whole = initialCamera(view, worldSize(), buildingBand(floors()), buildingSpan(), insetsRef.current);
+        const close = frame();
+        if (cam.zoom > whole.zoom * 1.2) {
+          target = { x: whole.x, y: whole.y };
+          zoomTo(whole.zoom, view.w / 2, view.h / 2);
+        } else {
+          zoomTo(Math.max(close.zoom, whole.zoom * 2.2), p.x, p.y);
+        }
         lastTap = null;
         return;
       }

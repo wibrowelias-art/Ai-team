@@ -30,7 +30,7 @@ function act(g: GameState, day: number, style: Style, rng: () => number): GameSt
     }
     if (day >= 4 && g.cash > 5000) {
       const slot = g.building.rooms.find((r) => r.type === "EMPTY");
-      if (slot) g = buildRoom(g, slot.id, ["MERCH_STORE", "CAFE", "GYM", "OFFICE"][day % 4]).state;
+      if (slot) g = buildRoom(g, slot.id, (["MERCH_STORE", "CAFE", "GYM", "OFFICE"] as const)[day % 4]).state;
     }
     if (day >= 5 && g.cash > 4000) g = buyUpgrade(g, "pcs").state;
     if (day >= 6 && g.cash > 3000) g = upgradeRoom(g, "factory").state;
@@ -68,6 +68,9 @@ it("prints a 30-day balance table", () => {
     }
     out.push(`${style.padEnd(9)} end $${cash[30].toLocaleString()} workers ${g.workers.length} floors ${g.building.floors} longest flat run ${worstFlat}d ${bankruptDay ? `BANKRUPT day ${bankruptDay}` : ""}`);
     out.push("  " + cash.map((c, i) => (i % 3 === 0 ? `d${i}:${(c / 1000).toFixed(1)}k` : "")).filter(Boolean).join(" "));
+    const h = g.economy.history[g.economy.history.length - 1];
+    const b = Object.entries(h.byBusiness).map(([k, v]) => `${k} ${Math.round(v)}`).join(", ");
+    out.push(`  day30 revenue ${Math.round(h.revenue)} (${b}) spent ${Math.round(h.spent)} | fans ${Math.round(g.economy.businesses.music.fans)} fol ${Math.round(g.economy.businesses.social.followers)} eff +${Math.round(g.economy.businesses.research.efficiency * 100)}% live ${g.products.filter((p) => p.stage === "done").length}`);
   }
   // vitest swallows console output: write the table next to the project.
   writeFileSync("balance-report.txt", out.join("\n") + "\n");

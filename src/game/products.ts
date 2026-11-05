@@ -82,7 +82,11 @@ export function approve(s: GameState, productId: string, rng: Rng): boolean {
   if (w) {
     if (w.bubble?.icon === "alert" && !s.products.some((x) => x.creatorId === w.id && x.stage === "approval")) w.bubble = null;
     w.mood = clamp(w.mood + 2);
-    say(s, w.id, line(w.id, "approved", rng));
+    // A quick thanks now and then, not after every single approval.
+    if (rng() < 0.3 && s.minutes - w.lastTextAt > 60) {
+      w.lastTextAt = s.minutes;
+      say(s, w.id, line(w.id, "approved", rng));
+    }
   }
   return true;
 }
@@ -129,7 +133,11 @@ export function runFactory(s: GameState, outputs: Map<string, number>, rng: Rng,
       } else {
         current.stage = "approval";
         bubble(w, "alert", s.minutes, 600);
-        say(s, w.id, `${line(w.id, "needsApproval", rng)} (${current.name})`);
+        // One nudge per worker per 3 game hours; the ❗ bubble and the Factory badge carry the rest.
+        if (s.minutes - w.lastTextAt > 180) {
+          w.lastTextAt = s.minutes;
+          say(s, w.id, `${line(w.id, "needsApproval", rng)} (${current.name})`);
+        }
       }
     }
   }
