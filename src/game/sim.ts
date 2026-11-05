@@ -8,6 +8,7 @@ import { moveWorker, pickSpot, REST_KINDS, sendWorker, WORK_KINDS, type Rng } fr
 import { starterProducts } from "./products";
 import { cycleIndex, dayOf } from "./time";
 import type { GameState, Worker } from "./types";
+import { effects, type Effects } from "./upgrades";
 
 export { isRiding, moveWorker, pickSpot, REST_KINDS, sendWorker, WORK_KINDS } from "./movement";
 export type { Rng } from "./movement";
@@ -60,6 +61,10 @@ export function newGameState(name: string, theme: ThemeId, rng: Rng = Math.rando
     chats: {},
     seq: 0,
     meetings: [],
+    upgrades: { coffee: 0, pcs: 0, pool: 0, server_rack: 0, neon_sign: 0 },
+    candidates: [],
+    candidatesDay: 0,
+    tutorial: { step: 0, done: false },
   };
   const bunc = workers.find((w) => w.id === "bunc") ?? workers[0];
   s.products = starterProducts(s, bunc, rng);
@@ -137,15 +142,15 @@ function arrive(w: Worker, s: GameState, rng: Rng): void {
 /** A meeting holds attendees at most this long; endMeeting releases them earlier. */
 export const MEETING_MAX_MINUTES = 240;
 
-function updateStats(w: Worker, dt: number): void {
+function updateStats(w: Worker, dt: number, fx: Effects): void {
   switch (w.activity) {
     case "working":
-      w.energy = clamp(w.energy - 0.11 * dt);
+      w.energy = clamp(w.energy - 0.11 * fx.energyDrain * dt);
       w.cycleWork += dt;
       break;
     case "resting":
-      w.energy = clamp(w.energy + 0.7 * dt);
-      w.mood = clamp(w.mood + 0.04 * dt);
+      w.energy = clamp(w.energy + 0.7 * fx.restRate * dt);
+      w.mood = clamp(w.mood + 0.04 * fx.restRate * dt);
       break;
     case "walking":
     case "visiting":
@@ -159,10 +164,10 @@ function updateStats(w: Worker, dt: number): void {
   if (w.energy < 15) w.mood = clamp(w.mood - 0.03 * dt);
 }
 
-function stepWorkers(s: GameState, dt: number, rng: Rng): void {
+function stepWorkers(s: GameState, dt: number, rng: Rng, fx: Effects): void {
   for (const w of s.workers) {
     if (w.bubble && w.bubble.until <= s.minutes) w.bubble = null;
-    updateStats(w, dt);
+    updateStats(w, dt, fx);
     if (w.activity === "walking") {
       if (moveWorker(w, dt)) arrive(w, s, rng);
       continue;
@@ -185,13 +190,15 @@ export function step(state: GameState, dtMin: number, rng: Rng = Math.random, op
   if (dtMin <= 0) return state;
   const s: GameState = { ...state, workers: state.workers.map((w) => ({ ...w })) };
   let owned = false;
+  // Rooms and upgrades only change through player actions, so this holds for the whole step.
+  const fx = effects(s);
   let remaining = dtMin;
   while (remaining > 0) {
     const dt = Math.min(1, remaining);
     remaining -= dt;
     const before = s.minutes;
     s.minutes += dt;
-    stepWorkers(s, dt, rng);
+    stepWorkers(s, dt, rng, fx);
     const crossed = cycleIndex(s.minutes) - cycleIndex(before);
     for (let i = 1; i <= crossed; i++) {
       if (!owned) {

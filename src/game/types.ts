@@ -128,7 +128,7 @@ export interface Product {
   revenue: number;
 }
 
-export type CostKind = "salaries" | "rent" | "compute" | "budgets" | "bonuses" | "events";
+export type CostKind = "salaries" | "rent" | "compute" | "budgets" | "bonuses" | "events" | "upgrades";
 
 export interface DayLedger {
   day: number;
@@ -222,6 +222,21 @@ export interface ChatMessage {
   request?: { type: "raise"; amount: number; status: "open" | "approved" | "declined" };
 }
 
+export type UpgradeId = "coffee" | "pcs" | "pool" | "server_rack" | "neon_sign";
+
+export interface Candidate {
+  id: string;
+  name: string;
+  role: string;
+  focus: Focus;
+  personality: string;
+  bio: string;
+  skill: number;
+  speed: number;
+  salary: number;
+  look: WorkerLook;
+}
+
 export interface MeetingLine {
   speaker: string;
   text: string;
@@ -259,6 +274,12 @@ export interface GameState {
   seq: number;
   /** last few meeting transcripts */
   meetings: MeetingRecord[];
+  /** shop upgrade levels (0-3) */
+  upgrades: Record<UpgradeId, number>;
+  /** job candidates for hiring, refreshed once per day */
+  candidates: Candidate[];
+  candidatesDay: number;
+  tutorial: { step: number; done: boolean };
   version: number;
   started: boolean;
   company: { name: string; theme: ThemeId };

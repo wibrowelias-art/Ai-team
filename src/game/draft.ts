@@ -63,7 +63,7 @@ export function newLedger(day: number): DayLedger {
     revenue: 0,
     spent: 0,
     byBusiness: emptyByBusiness(),
-    costs: { salaries: 0, rent: 0, compute: 0, budgets: 0, bonuses: 0, events: 0 },
+    costs: { salaries: 0, rent: 0, compute: 0, budgets: 0, bonuses: 0, events: 0, upgrades: 0 },
   };
 }
 

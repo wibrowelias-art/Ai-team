@@ -129,6 +129,7 @@ const COST_LABEL: Record<CostKind, string> = {
   budgets: "Dept. budgets",
   bonuses: "Bonuses & tasks",
   events: "Events",
+  upgrades: "Building & upgrades",
 };
 
 export function TreasuryContent({ game }: { game: GameState }) {

@@ -4,13 +4,14 @@
  */
 import { BUSINESSES, PRODUCT_INFO, RESEARCH_STEP, RESEARCH_UNLOCKS } from "./business";
 import { COMPUTE_PER_WORKER, CYCLES_PER_DAY, DEFAULT_BUDGET, RENT_PER_FLOOR } from "./constants";
-import { bubble, clamp, earn, log, newLedger, say, spend } from "./draft";
+import { bubble, clamp, earn, log, newLedger, otherIncome, say, spend } from "./draft";
 import { expireEvents, maybeTriggerEvent, removeWorker } from "./events";
 import { line } from "./lines";
 import { runMissions } from "./missions";
 import { runFactory } from "./products";
 import { dayOf } from "./time";
 import type { BusinessId, Economy, GameState, Worker } from "./types";
+import { effects } from "./upgrades";
 
 type Rng = () => number;
 
@@ -101,8 +102,9 @@ export function runCycle(s: GameState, rng: Rng, opts: CycleOptions): CycleRepor
   const now = s.minutes;
   const outputs = new Map<string, number>();
   const byFocus: Record<string, Worker[]> = {};
+  const fx = effects(s);
   for (const w of s.workers) {
-    const out = workerOutput(w, now);
+    const out = workerOutput(w, now) * fx.output(w);
     outputs.set(w.id, out);
     (byFocus[w.focus] ??= []).push(w);
     w.cycleWork = 0;
@@ -124,7 +126,7 @@ export function runCycle(s: GameState, rng: Rng, opts: CycleOptions): CycleRepor
   const F = sumOut("freelance");
   revenue.freelance = 38 * F * demand * common("freelance");
   if (F > 0 && rng() < 0.03) {
-    const refund = Math.round(40 + rng() * 60);
+    const refund = Math.round((40 + rng() * 60) * fx.eventCost);
     revenue.freelance -= refund;
     log(s, `A freelance client asked for a $${refund} refund.`, "bad");
   }
@@ -146,21 +148,21 @@ export function runCycle(s: GameState, rng: Rng, opts: CycleOptions): CycleRepor
   // Music: fans stream; producers grow the fanbase.
   const M = sumOut("music");
   const music = e.businesses.music;
-  music.fans += (M * music.fans * 0.004 + M * 5) * budgetFactor(e.budgets.music);
-  revenue.music = outage ? 0 : music.fans * 0.003 * demand * common("music");
+  music.fans += (M * music.fans * 0.004 + M * 5) * budgetFactor(e.budgets.music) * fx.musicGrowth;
+  revenue.music = outage ? 0 : music.fans * 0.003 * demand * common("music") * fx.musicIncome;
 
   // Social: followers bring sponsorships and lift demand everywhere.
   const So = sumOut("social");
   const social = e.businesses.social;
-  social.followers += (So * social.followers * 0.004 + So * 8) * budgetFactor(e.budgets.social);
-  revenue.social = social.followers * 0.002 * common("social");
+  social.followers += (So * social.followers * 0.004 + So * 8) * budgetFactor(e.budgets.social) * fx.socialGrowth;
+  revenue.social = social.followers * 0.002 * common("social") * fx.socialIncome;
 
   // Research: consulting income + points that unlock product lines.
   const R = sumOut("research");
   const research = e.businesses.research;
   if (!outage) {
     const before = Math.floor(research.points / RESEARCH_STEP);
-    research.points += R * 0.6 * budgetFactor(e.budgets.research);
+    research.points += R * 0.6 * budgetFactor(e.budgets.research) * fx.researchRate;
     const after = Math.floor(research.points / RESEARCH_STEP);
     for (let i = before; i < after; i++) unlockNext(s, i);
     revenue.research = 15 * R * common("research");
@@ -235,7 +237,17 @@ export function runDay(s: GameState, rng: Rng): void {
     e.unpaidDays = 0;
   }
 
+  const fx = effects(s);
+  if (fx.interestRate > 0 && s.cash > 0) {
+    const interest = Math.round(Math.min(fx.interestCap, s.cash * fx.interestRate));
+    if (interest > 0) {
+      otherIncome(s, interest);
+      log(s, `📈 The Trading Desk earned $${interest} on idle cash.`, "good");
+    }
+  }
   for (const w of [...s.workers]) {
+    w.mood = clamp(w.mood + fx.dailyMood);
+    w.loyalty = clamp(w.loyalty + fx.dailyLoyalty);
     const fair = fairSalary(w.skill);
     const payDelta = clamp(((w.salary - fair) / fair) * 10, -5, 5);
     const moodDelta = (w.mood - 50) / 25;

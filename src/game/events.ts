@@ -5,6 +5,7 @@ import { bubble, clamp, log, nextId, otherIncome, say, spend } from "./draft";
 import { line } from "./lines";
 import { pickSpot, sendWorker } from "./movement";
 import type { BusinessId, GameEvent, GameState, Worker } from "./types";
+import { effects } from "./upgrades";
 
 type Rng = () => number;
 
@@ -225,7 +226,7 @@ export function resolveEvent(s: GameState, eventId: string, choice: number, rng:
     case "viral":
       if (choice === 0) for (const w of s.workers) w.mood = clamp(w.mood + 5);
       else {
-        spend(s, "events", 300);
+        spend(s, "events", Math.round(300 * effects(s).eventCost));
         const soc = s.economy.businesses.social;
         soc.followers = Math.round(soc.followers * 1.15);
       }
@@ -233,7 +234,7 @@ export function resolveEvent(s: GameState, eventId: string, choice: number, rng:
     case "refund": {
       const freelancers = s.workers.filter((w) => w.focus === "freelance");
       if (choice === 0) {
-        spend(s, "events", 250);
+        spend(s, "events", Math.round(250 * effects(s).eventCost));
         s.economy.modifiers.push({ id: nextId(s, "mod"), label: "Refunds", business: "freelance", mult: 0.7, until: now + 12 * 60 });
         for (const w of freelancers) w.mood = clamp(w.mood - 3);
       } else {
@@ -254,7 +255,7 @@ export function resolveEvent(s: GameState, eventId: string, choice: number, rng:
       if (!w) break;
       const stays = choice === 0 || (choice === 2 && w.loyalty >= 40);
       if (choice === 0) {
-        spend(s, "events", Number(d.cost), w);
+        spend(s, "events", Math.round(Number(d.cost) * effects(s).eventCost), w);
         w.salary = Math.round(w.salary * 1.1);
         w.loyalty = clamp(w.loyalty + 20);
         w.mood = clamp(w.mood + 5);
@@ -270,7 +271,7 @@ export function resolveEvent(s: GameState, eventId: string, choice: number, rng:
     }
     case "outage":
       if (choice === 0) {
-        spend(s, "events", 400);
+        spend(s, "events", Math.round(400 * effects(s).eventCost));
         s.economy.modifiers = s.economy.modifiers.filter((m) => !m.outage);
         log(s, "Servers repaired.", "good");
       } else {

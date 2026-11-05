@@ -1,5 +1,5 @@
 import { FOCUS_ROOM } from "./business";
-import { SAVE_VERSION } from "./constants";
+import { SAVE_VERSION, START_MINUTE } from "./constants";
 import { CREW_SEEDS } from "./crew";
 import { newEconomy } from "./economy";
 import { starterProducts } from "./products";
@@ -68,6 +68,11 @@ export function migrate(input: GameState): GameState {
     chats: input.chats && typeof input.chats === "object" ? input.chats : {},
     seq: typeof input.seq === "number" ? input.seq : 0,
     meetings: Array.isArray(input.meetings) ? input.meetings : [],
+    upgrades: { coffee: 0, pcs: 0, pool: 0, server_rack: 0, neon_sign: 0, ...((input.upgrades ?? {}) as Partial<GameState["upgrades"]>) },
+    candidates: Array.isArray(input.candidates) ? input.candidates : [],
+    candidatesDay: typeof input.candidatesDay === "number" ? input.candidatesDay : 0,
+    // Players who already have a running company skip the tutorial.
+    tutorial: input.tutorial ?? { step: 0, done: input.minutes > START_MINUTE + 120 },
   };
   if (!s.economy || typeof s.economy !== "object") {
     // v1 → v2: the economy arrives.
@@ -79,6 +84,10 @@ export function migrate(input: GameState): GameState {
     s.economy = { ...newEconomy(dayOf(s.minutes)), ...s.economy };
     s.products = Array.isArray(input.products) ? input.products : [];
   }
+  // Ledgers from older saves lack newer cost kinds.
+  const blank = newEconomy(1).today.costs;
+  s.economy.today = { ...s.economy.today, costs: { ...blank, ...s.economy.today.costs } };
+  s.economy.history = s.economy.history.map((d) => ({ ...d, costs: { ...blank, ...d.costs } }));
   return s;
 }
 
