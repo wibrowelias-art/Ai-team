@@ -7,12 +7,22 @@ import { useGame } from "@/game/store";
 import BottomBar from "./BottomBar";
 import GameCanvas from "./GameCanvas";
 import Hud from "./Hud";
-import { CrewPanel, WorkerPanel } from "./panels/CrewPanels";
+import dynamic from "next/dynamic";
 import { AwayModal, EventModal, MilestoneBanner, ReportModal, Toasts } from "./Overlays";
-import { FactoryPanel, LogPanel, RevenuePanel, RoomPanel, SettingsPanel, TreasuryPanel } from "./panels/OtherPanels";
-import { BuildPanel, HirePanel } from "./panels/BuildPanels";
-import ChatPanel from "./panels/ChatPanel";
 import SoundDirector from "./SoundDirector";
+
+// Panels load on first open: the canvas and HUD paint without them.
+const CrewPanel = dynamic(() => import("./panels/CrewPanels").then((m) => m.CrewPanel), { ssr: false });
+const WorkerPanel = dynamic(() => import("./panels/CrewPanels").then((m) => m.WorkerPanel), { ssr: false });
+const RoomPanel = dynamic(() => import("./panels/OtherPanels").then((m) => m.RoomPanel), { ssr: false });
+const TreasuryPanel = dynamic(() => import("./panels/OtherPanels").then((m) => m.TreasuryPanel), { ssr: false });
+const FactoryPanel = dynamic(() => import("./panels/OtherPanels").then((m) => m.FactoryPanel), { ssr: false });
+const LogPanel = dynamic(() => import("./panels/OtherPanels").then((m) => m.LogPanel), { ssr: false });
+const SettingsPanel = dynamic(() => import("./panels/OtherPanels").then((m) => m.SettingsPanel), { ssr: false });
+const RevenuePanel = dynamic(() => import("./panels/OtherPanels").then((m) => m.RevenuePanel), { ssr: false });
+const BuildPanel = dynamic(() => import("./panels/BuildPanels").then((m) => m.BuildPanel), { ssr: false });
+const HirePanel = dynamic(() => import("./panels/BuildPanels").then((m) => m.HirePanel), { ssr: false });
+const ChatPanel = dynamic(() => import("./panels/ChatPanel"), { ssr: false });
 import Tutorial from "./Tutorial";
 import { advanceMeeting, MEETING_LINE_INTERVAL_MS, workerTextTick } from "@/game/aiStore";
 import { play } from "@/lib/sound";
@@ -89,9 +99,17 @@ function Panels() {
 /** Drives meeting transcripts and workers texting the boss. */
 function AiRunner() {
   useEffect(() => {
+    // Warm the panel chunks once the first frame is up, so the first tap opens instantly.
+    const warm = window.setTimeout(() => {
+      void import("./panels/CrewPanels");
+      void import("./panels/OtherPanels");
+      void import("./panels/BuildPanels");
+      void import("./panels/ChatPanel");
+    }, 1500);
     const lines = window.setInterval(advanceMeeting, MEETING_LINE_INTERVAL_MS);
     const texts = window.setInterval(() => void workerTextTick(), 2500);
     return () => {
+      window.clearTimeout(warm);
       window.clearInterval(lines);
       window.clearInterval(texts);
     };

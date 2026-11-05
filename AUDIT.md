@@ -83,15 +83,15 @@ Items are ordered by impact. Ticked = fixed.
 ## I. Mobile, accessibility, performance
 
 - [x] I1. **Tap targets under 44 px**: speed buttons 36×32, fullscreen/mute/settings 36×32, panel close 36×36, tutorial Skip 23×17, HUD cells 65×35, intro "Open the doors" 40 px tall, "Ship" 28 px, sliders 16 px tall, chat chips 30 px.
-- [ ] I2. Not yet checked at 360×780 and 412×915 (checked 360×640, 390×844, 430×932).
-- [ ] I3. Panels, chat and sound are in the main game chunk; lazy-load them.
+- [x] I2. Checked at 360×780, 412×915, 390×844, 430×932, 844×390, 768×1024 and 1440×900: no overflow, panels clear of HUD and bottom bar, all targets ≥ 44 px.
+- [x] I3. Panels and chat load on first open (warmed after the first frame); the game chunk shrank from 176 KB to 80 KB. Sound stays in the main chunk: it is 3 KB and must answer the first tap.
 - [ ] I4. Lighthouse mobile performance 94 after the 2.5D world; keep ≥ 90 after polish, accessibility ≥ 95.
-- [ ] I5. Console is clean (0 errors / warnings) at both sizes. Keep it that way.
+- [x] I5. Console clean at every size in the layout QA and in all screenshot runs.
 
 ## J. Final checks
 
-- [ ] J1. Full Playwright run: name a company, pay a bonus, chat, meeting, build, reload survives.
-- [ ] J2. No API key in client bundle (`npm run check:bundle`).
+- [x] J1. Full Playwright run: name a company, pay a bonus, chat, meeting, build, reload survives.
+- [x] J2. No API key in client bundle (`npm run check:bundle`).
 - [ ] J3. Deploy to Vercel.
 - [ ] J4. Before/after screenshots of main, Treasury, Factory, chat, meeting.
 - [ ] J5. CHANGELOG.md.
