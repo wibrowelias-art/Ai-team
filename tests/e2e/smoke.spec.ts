@@ -171,6 +171,62 @@ test("mobile: a meeting about 'next product' has 3+ speakers and applies a decis
   await expect(page.getByTestId("meeting-decisions").locator("li", { hasText: "✓" }).first()).toBeVisible();
 });
 
+test("mobile: the 5-step tutorial walks through worker, bonus, Treasury, meeting and building", async ({ page }) => {
+  await startGame(page);
+  await page.getByTestId("speed-0").click();
+  const text = page.getByTestId("tutorial-text");
+  await expect(text).toContainText("Tap any worker");
+
+  await page.getByTestId("nav-crew").click();
+  await page.getByTestId("crew-bunc").click();
+  await expect(text).toContainText("Bonus");
+  await page.getByTestId("bonus-50").click();
+  await expect(text).toContainText("Treasury");
+  await page.getByTestId("panel-close").click();
+
+  await page.getByTestId("nav-treasury").click();
+  await expect(text).toContainText("Meeting");
+  await page.getByTestId("panel-close").click();
+
+  await page.getByTestId("nav-crew").click();
+  await page.getByTestId("open-meeting").click();
+  await page.getByTestId("meeting-topic").fill("team morale");
+  await page.getByTestId("meeting-start").click();
+  await expect(text).toContainText("Build");
+  await page.getByTestId("meeting-close").click();
+  await page.getByTestId("panel-close").click().catch(() => undefined);
+
+  await page.getByTestId("nav-build").click();
+  await page.getByTestId("build-btn-marketing_lab").click();
+  await expect(page.getByTestId("tutorial")).toHaveCount(0);
+  await expect(page.getByTestId("toasts")).toContainText("Tutorial complete");
+  // The room is built: its panel now offers an upgrade instead.
+  await expect(page.getByTestId("upgrade-marketing_lab")).toBeVisible();
+});
+
+test("mobile: hire a candidate and fire a worker", async ({ page }) => {
+  await startGame(page);
+  await page.getByTestId("tutorial-skip").click();
+  await page.getByTestId("speed-0").click();
+  await page.getByTestId("nav-crew").click();
+  await page.getByTestId("open-hire").click();
+  await expect(page.getByTestId("candidate")).toHaveCount(3);
+  const name = (await page.getByTestId("candidate").first().locator(".font-pixel").first().innerText()).trim();
+  await page.getByTestId("hire-btn").first().click();
+  await expect(page.getByTestId("candidate")).toHaveCount(2);
+  await page.getByTestId("panel-close").click();
+  await page.getByTestId("nav-crew").click();
+  await expect(page.getByTestId("panel-crew")).toContainText("Crew · 8");
+  await expect(page.getByTestId("panel-crew")).toContainText(name);
+
+  await page.getByTestId("crew-maverick").click();
+  await page.getByTestId("fire").click();
+  await page.getByTestId("fire-yes").click();
+  await page.getByTestId("nav-crew").click();
+  await expect(page.getByTestId("panel-crew")).toContainText("Crew · 7");
+  await expect(page.getByTestId("crew-maverick")).toHaveCount(0);
+});
+
 test("mobile: tapping a room on the canvas opens its panel", async ({ page }) => {
   await startGame(page);
   const canvas = await box(page, "game-canvas");

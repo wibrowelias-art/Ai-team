@@ -123,6 +123,7 @@ export function Toasts() {
   const openPanel = useGame((s) => s.openPanel);
   const focusOn = useGame((s) => s.focusOn);
   const game = usePolledGame(200);
+  const tutorialOn = useGame((s) => !!s.game && !s.game.tutorial.done);
   const seen = useRef<Set<string> | null>(null);
 
   // Watch chat threads for new worker messages.
@@ -166,7 +167,11 @@ export function Toasts() {
   }, []);
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-12 z-30 flex flex-col items-center gap-1.5 px-3" aria-live="polite" data-testid="toasts">
+    <div
+      className={`pointer-events-none absolute inset-x-0 ${tutorialOn ? "top-[7.5rem]" : "top-12"} z-30 flex flex-col items-center gap-1.5 px-3`}
+      aria-live="polite"
+      data-testid="toasts"
+    >
       {toasts.map((t) => {
         const w = t.workerId ? game?.workers.find((x) => x.id === t.workerId) : undefined;
         return (

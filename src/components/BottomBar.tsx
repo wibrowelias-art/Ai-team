@@ -1,6 +1,7 @@
 "use client";
 
 import { useGame, type PanelId } from "@/game/store";
+import { STEPS } from "./Tutorial";
 
 const ITEMS: { id: PanelId; label: string; icon: string; color: string }[] = [
   { id: "crew", label: "Crew", icon: "👥", color: "text-cyan" },
@@ -13,6 +14,7 @@ const ITEMS: { id: PanelId; label: string; icon: string; color: string }[] = [
 export default function BottomBar() {
   const panel = useGame((s) => s.panel?.id);
   const openPanel = useGame((s) => s.openPanel);
+  const tutorialTarget = useGame((s) => (s.game && !s.game.tutorial.done ? STEPS[s.game.tutorial.step]?.highlight : undefined));
 
   return (
     <nav
@@ -30,7 +32,7 @@ export default function BottomBar() {
             onClick={() => openPanel(active ? null : { id: it.id })}
             className={`flex h-14 flex-col items-center justify-center gap-0.5 transition-colors ${
               active ? `${it.color} bg-white/5` : "text-[#8a84b8] hover:text-white"
-            }`}
+            } ${tutorialTarget === it.id && !active ? "animate-pulse text-hud" : ""}`}
             aria-pressed={active}
           >
             <span className="text-lg leading-none" aria-hidden>

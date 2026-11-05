@@ -14,6 +14,7 @@ import { FactoryPanel, LogPanel, RevenuePanel, RoomPanel, SettingsPanel, Treasur
 import { BuildPanel, HirePanel } from "./panels/BuildPanels";
 import ChatPanel from "./panels/ChatPanel";
 import SoundDirector from "./SoundDirector";
+import Tutorial from "./Tutorial";
 import { advanceMeeting, MEETING_LINE_INTERVAL_MS, workerTextTick } from "@/game/aiStore";
 
 const AUTOSAVE_MS = 10_000;
@@ -180,6 +181,7 @@ export default function Game() {
         <Toasts />
         <AiRunner />
         <SoundDirector />
+        <Tutorial />
         <Panels />
         <EventModal />
         <AwayModal />
