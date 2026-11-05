@@ -23,7 +23,10 @@ import { worldToScreen, type Camera, type View } from "./camera";
 import { makeSkyline, type Blinker } from "./city";
 import { drawPixelText, textWidth } from "./font";
 import { drawStatic, groundLine, laneY, staticKey, tunnelY } from "./scene";
-import { composeFrame, FRAME_H, FRAME_NAMES, FRAME_W, paintGrid, paletteFor, type FrameName } from "./sprites";
+import { composeFrame, FRAME_H, FRAME_NAMES, FRAME_W, paintGrid, paletteFor, WALK_CYCLE, type FrameName } from "./sprites";
+import { reducedMotion } from "@/ui/motion";
+import { play } from "@/lib/sound";
+import { formatMoney } from "@/game/time";
 
 const BUBBLES: Record<BubbleIcon, string> = { idea: "💡", tired: "💤", paid: "💰", angry: "😡", alert: "❗", talk: "💬" };
 
@@ -121,7 +124,27 @@ export class Renderer {
   private floors = 3;
   private lastT = 0;
   private flash = 0;
+  private flashColor = "#ffffff";
+  private shake = 0;
   private tagWidths = new Map<string, number>();
+  /** smoothed on-screen positions so motion eases instead of stepping */
+  private vis = new Map<string, { x: number; y: number; vx: number; vy: number; facing: 1 | -1; lookUntil: number; stretchUntil: number }>();
+  private fives = new Map<string, number>();
+  private fiveUntil = new Map<string, number>();
+  private doors = new Map<number, number>();
+  private coins: { x: number; y: number; tx: number; ty: number; t: number; dur: number; color: string }[] = [];
+  private floaters: { x: number; y: number; text: string; color: string; t: number }[] = [];
+  private prevRevenue = -1;
+  private prevSpent = -1;
+  private prevPaid = new Set<string>();
+  private prevEvents = new Set<string>();
+  private anchor: { x: number; y: number } | null = null;
+  private reduced = reducedMotion();
+
+  /** Screen point coins fly to/from (the HUD cash counter). */
+  setAnchor(p: { x: number; y: number } | null): void {
+    this.anchor = p;
+  }
 
   constructor(private fontFamily: string) {}
 
@@ -319,8 +342,12 @@ export class Renderer {
     main.globalAlpha = 1;
     main.globalCompositeOperation = "source-over";
     const snap = (v: number) => Math.round(v * dpr) / dpr;
-    const ox = snap(view.w / 2 - cam.x * z);
-    const oy = snap(view.h / 2 - cam.y * z);
+    this.watchGame(g, cam, view, t);
+    const shakeX = this.shake > 0.01 ? (hash(t * 0.37) - 0.5) * this.shake * 14 : 0;
+    const shakeY = this.shake > 0.01 ? (hash(t * 0.53 + 9) - 0.5) * this.shake * 10 : 0;
+    this.shake *= Math.exp(-dt * 6);
+    const ox = snap(view.w / 2 - cam.x * z + shakeX);
+    const oy = snap(view.h / 2 - cam.y * z + shakeY);
     const groundScreen = oy + groundY * z;
 
     this.drawBackdrop(main, view, cam, dpr, sky, night, groundScreen, quality, t);
@@ -389,10 +416,22 @@ export class Renderer {
 
     // Characters in screen space: they glide instead of stepping a whole art pixel at a time.
     main.imageSmoothingEnabled = false;
+    const camX = cam.x - shakeX / z;
+    const camY = cam.y - shakeY / z;
+    const shakenCam = { x: camX, y: camY, zoom: z };
+    this.drawDoors(main, g, shakenCam, view, snap, dt);
     const sorted = [...g.workers].sort((a, b) => a.floor - b.floor || a.x - b.x);
-    for (const w of sorted) this.drawWorker(main, w, g, t, cam, view, snap);
+    for (const w of sorted) this.drawWorker(main, w, g, t, dt, shakenCam, view, snap);
 
     this.drawWeather(main, view, t, dt, rain, weather, quality, z);
+    this.drawFx(main, view, t, dt, z);
+    if (this.flash > 0.01) {
+      main.fillStyle = this.flashColor;
+      main.globalAlpha = this.flash * 0.55;
+      main.fillRect(0, 0, view.w, view.h);
+      main.globalAlpha = 1;
+      this.flash *= Math.exp(-dt * 5);
+    }
     this.drawOverlays(main, g, cam, view, t, selectedId);
   }
 
@@ -715,22 +754,43 @@ export class Renderer {
 
   // ---------------------------------------------------------------- characters
 
-  private drawWorker(
-    main: CanvasRenderingContext2D,
-    wk: Worker,
-    g: GameState,
-    t: number,
-    cam: Camera,
-    view: View,
-    snap: (v: number) => number,
-  ): void {
+  /** Eased on-screen position: starts and stops softly instead of stepping with the sim. */
+  private visual(wk: Worker, dt: number, t: number) {
+    const base = floorBase(wk.floor) + wk.y;
+    let v = this.vis.get(wk.id);
+    if (!v || this.reduced || Math.abs(v.x - wk.x) > 60 || Math.abs(v.y - base) > 80) {
+      v = { x: wk.x, y: base, vx: 0, vy: 0, facing: wk.facing, lookUntil: 0, stretchUntil: 0 };
+      this.vis.set(wk.id, v);
+      return v;
+    }
+    // critically damped spring toward the sim position (per axis)
+    const k = 180;
+    const c = 2 * Math.sqrt(k);
+    const step = Math.min(dt, 0.05);
+    for (const axis of ["x", "y"] as const) {
+      const target = axis === "x" ? wk.x : base;
+      const vel = axis === "x" ? "vx" : "vy";
+      const a = -k * (v[axis] - target) - c * v[vel];
+      v[vel] += a * step;
+      v[axis] += v[vel] * step;
+    }
+    // look around when idle: flip for a moment now and then
+    if (wk.activity !== "walking" && t > v.lookUntil && hash(Math.floor(t / 2500) + wk.x) < 0.12) v.lookUntil = t + 900;
+    v.facing = t < v.lookUntil ? ((-wk.facing) as 1 | -1) : wk.facing;
+    return v;
+  }
+
+  private drawWorker(main: CanvasRenderingContext2D, wk: Worker, g: GameState, t: number, dt: number, cam: Camera, view: View, snap: (v: number) => number): void {
     const z = cam.zoom;
     const sheet = this.sheet(wk);
-    const base = floorBase(wk.floor) + wk.y;
+    const v = this.visual(wk, dt, t);
+    const base = v.y;
+    const x = v.x;
+    const moving = Math.abs(v.vx) > 1.5 || Math.abs(v.vy) > 1.5;
     const riding = wk.activity === "walking" && wk.route[0]?.kind === "ride" && Math.abs(wk.x - SHAFT_CENTER_X) < 0.5;
     const sx = (wx: number) => snap(view.w / 2 + (wx - cam.x) * z);
     const sy = (wy: number) => snap(view.h / 2 + (wy - cam.y) * z);
-    if (sx(wk.x) < -40 || sx(wk.x) > view.w + 40 || sy(base) < -40 || sy(base) > view.h + 60) return;
+    if (sx(x) < -40 || sx(x) > view.w + 40 || sy(base) < -40 || sy(base) > view.h + 60) return;
 
     if (riding) {
       const px = SHAFT.x + 3;
@@ -749,39 +809,189 @@ export class Renderer {
     }
 
     const spot = this.spotKind(wk, g);
-    const row = wk.facing === 1 ? 0 : FRAME_H;
+    const facing = moving ? wk.facing : v.facing;
+    const row = facing === 1 ? 0 : FRAME_H;
 
     if (wk.activity === "resting" && spot === "couch") {
-      const rowS = wk.facing === 1 ? 0 : FRAME_W;
+      const rowS = facing === 1 ? 0 : FRAME_W;
       const breathe = Math.sin(t / 700) * 0.4;
-      main.drawImage(sheet.sleep, 0, rowS, FRAME_H, FRAME_W, sx(wk.x - 8), sy(base - 15 + breathe), FRAME_H * z, FRAME_W * z);
+      main.drawImage(sheet.sleep, 0, rowS, FRAME_H, FRAME_W, sx(x - 8), sy(base - 15 + breathe), FRAME_H * z, FRAME_W * z);
       return;
     }
 
     let frame: FrameName = "idle0";
-    let dx = 0;
+    const dx = 0;
     let dy = 0;
-    if (wk.bubble?.icon === "paid") frame = Math.floor(t / 220) % 2 === 0 ? "cheer0" : "cheer1";
-    else if (wk.activity === "walking" && !riding) frame = (["walk0", "walk1", "walk2", "walk3"] as const)[Math.floor(t / 140) % 4];
+    const fiving = (this.fiveUntil.get(wk.id) ?? 0) > t;
+    const tired = wk.energy < 30 && wk.activity !== "resting";
+    if (tired && !moving && t > v.stretchUntil - 700 && hash(Math.floor(t / 6000) + wk.x * 3) < 0.5 && t % 6000 < 700) v.stretchUntil = t + 700;
+    if (wk.bubble?.icon === "paid" || fiving) frame = Math.floor(t / 220) % 2 === 0 ? "cheer0" : "cheer1";
+    else if (wk.bubble?.icon === "angry") {
+      // angry stomp: bent knees every other beat, with a little bounce
+      frame = Math.floor(t / 180) % 2 === 0 ? "stomp" : "idle0";
+      dy = Math.floor(t / 180) % 2 === 0 ? 0 : -1;
+    } else if (moving && !riding) {
+      const speed = Math.hypot(v.vx, v.vy);
+      frame = WALK_CYCLE[Math.floor(t / Math.max(70, 160 - speed * 1.2)) % WALK_CYCLE.length];
+    } else if (t < v.stretchUntil) frame = "stretch";
     else if (spot === "desk" || spot === "chair") frame = wk.activity === "working" ? (Math.floor(t / 240) % 2 === 0 ? "type0" : "type1") : "type0";
-    else frame = t % 3200 < 160 ? "idle1" : "idle0";
-    if (wk.bubble?.icon === "angry") dx = Math.sin(t / 30) * 0.8;
+    else {
+      frame = t % 3200 < 160 ? "idle1" : "idle0";
+      dy = Math.sin(t / 900 + wk.x) * 0.35; // breathing
+    }
     if (wk.activity === "resting" && spot === "pool" && Math.floor(t / 1500) % 3 === 0) dy = -1;
 
     // soft contact shadow
     main.fillStyle = "rgba(0,0,0,0.28)";
-    main.fillRect(sx(wk.x - 5), sy(base - 1), 10 * z, 1.5 * z);
+    main.fillRect(sx(x - 5), sy(base - 1), 10 * z, 1.5 * z);
+
+    // typing: the monitor flickers brighter with each keystroke
+    if (frame === "type0" || frame === "type1") {
+      const glow = 0.25 + 0.2 * (Math.floor(t / 120) % 3 === 0 ? 1 : 0);
+      main.fillStyle = `rgba(160,235,255,${glow})`;
+      main.fillRect(sx(x + facing * 4 - 2), sy(base - 15), 6 * z, 5 * z);
+    }
 
     const fi = FRAME_NAMES.indexOf(frame);
-    main.drawImage(sheet.canvas, fi * FRAME_W, row, FRAME_W, FRAME_H, sx(wk.x - 6 + dx), sy(base - FRAME_H + dy), FRAME_W * z, FRAME_H * z);
+    main.drawImage(sheet.canvas, fi * FRAME_W, row, FRAME_W, FRAME_H, sx(x - 6 + dx), sy(base - FRAME_H + dy), FRAME_W * z, FRAME_H * z);
 
     if (wk.activity === "resting" && spot === "pool") {
       main.strokeStyle = "#c89a5a";
       main.lineWidth = Math.max(1, z);
       main.beginPath();
-      main.moveTo(sx(wk.x + wk.facing * 3), sy(base - 7));
-      main.lineTo(sx(wk.x + wk.facing * 12), sy(base - 4));
+      main.moveTo(sx(x + facing * 3), sy(base - 7));
+      main.lineTo(sx(x + facing * 12), sy(base - 4));
       main.stroke();
+    }
+  }
+
+  /** Friends who end up next to each other high-five (once per pair per while). */
+  private checkHighFives(g: GameState, t: number): void {
+    for (let i = 0; i < g.workers.length; i++) {
+      for (let j = i + 1; j < g.workers.length; j++) {
+        const a = g.workers[i];
+        const b = g.workers[j];
+        if (a.floor !== b.floor || a.activity === "walking" || b.activity === "walking") continue;
+        if (Math.abs(a.x - b.x) > 11 || (a.relationships[b.id] ?? 0) < 20) continue;
+        const key = `${a.id}|${b.id}`;
+        if ((this.fives.get(key) ?? -1e9) > t - 45000) continue;
+        this.fives.set(key, t);
+        this.fiveUntil.set(a.id, t + 800);
+        this.fiveUntil.set(b.id, t + 800);
+      }
+    }
+  }
+
+  /** Elevator doors at each stop: they slide open when a pod is there, else stay shut. */
+  private drawDoors(main: CanvasRenderingContext2D, g: GameState, cam: Camera, view: View, snap: (v: number) => number, dt: number): void {
+    const z = cam.zoom;
+    const sx = (wx: number) => snap(view.w / 2 + (wx - cam.x) * z);
+    const sy = (wy: number) => snap(view.h / 2 + (wy - cam.y) * z);
+    for (let f = 0; f < g.building.floors; f++) {
+      const base = floorBase(f);
+      const podHere = g.workers.some((w) => w.floor === f && Math.abs(w.y) < 2 && Math.abs(w.x - SHAFT_CENTER_X) < 6 && (w.activity === "walking" || w.route.length > 0));
+      const cur = this.doors.get(f) ?? 0;
+      const goal = podHere ? 1 : 0;
+      const next = this.reduced ? goal : cur + (goal - cur) * (1 - Math.exp(-dt * 7));
+      this.doors.set(f, next);
+      const open = next * 6;
+      const left = SHAFT.x + 3;
+      const right = SHAFT.x + SHAFT.w - 3;
+      const top = base - 20;
+      main.fillStyle = "rgba(30,58,74,0.92)";
+      main.fillRect(sx(left), sy(top), Math.max(0, 7 - open) * z, 20 * z);
+      main.fillRect(sx(right - 7 + open), sy(top), Math.max(0, 7 - open) * z, 20 * z);
+      main.fillStyle = "rgba(120,200,220,0.35)";
+      main.fillRect(sx(left + 6 - open), sy(top), 1 * z, 20 * z);
+      main.fillRect(sx(right - 7 + open), sy(top), 1 * z, 20 * z);
+    }
+  }
+
+  /** Watch the game for things worth a coin, a floater, a flash or a shake. */
+  private watchGame(g: GameState, cam: Camera, view: View, t: number): void {
+    this.checkHighFives(g, t);
+    const z = cam.zoom;
+    const toScreen = (wx: number, wy: number) => ({ x: view.w / 2 + (wx - cam.x) * z, y: view.h / 2 + (wy - cam.y) * z });
+    const anchor = this.anchor ?? { x: view.w * 0.1, y: 24 };
+    const revenue = Math.round(g.totalRevenue);
+    if (this.prevRevenue >= 0 && revenue > this.prevRevenue + 1 && !this.reduced) {
+      const gained = revenue - this.prevRevenue;
+      const earners = g.workers.filter((w) => w.activity === "working").slice(0, 6);
+      for (const w of earners) {
+        const p = toScreen(w.x, floorBase(w.floor) - 14);
+        this.coins.push({ x: p.x, y: p.y, tx: anchor.x, ty: anchor.y, t: 0, dur: 0.7 + Math.random() * 0.3, color: COLORS.yellow });
+      }
+      const mid = toScreen(BUILDING_X + BUILDING_W / 2, floorTop(0) - 30);
+      this.floaters.push({ x: Math.min(view.w - 40, Math.max(40, mid.x)), y: Math.min(view.h - 80, Math.max(90, mid.y)), text: `+${formatMoney(gained)}`, color: COLORS.green, t: 0 });
+      play("register");
+    }
+    this.prevRevenue = revenue;
+    const spent = Math.round(g.totalSpent);
+    for (const w of g.workers) {
+      const paid = w.bubble?.icon === "paid";
+      if (paid && !this.prevPaid.has(w.id) && !this.reduced) {
+        const p = toScreen(w.x, floorBase(w.floor) - 10);
+        for (let i = 0; i < 8; i++) this.coins.push({ x: anchor.x, y: anchor.y, tx: p.x + (Math.random() - 0.5) * 12, ty: p.y, t: -i * 0.05, dur: 0.6, color: COLORS.yellow });
+        if (this.prevSpent >= 0 && spent > this.prevSpent) this.floaters.push({ x: p.x, y: p.y - 10, text: `-${formatMoney(spent - this.prevSpent)}`, color: COLORS.red, t: 0 });
+      }
+      if (paid) this.prevPaid.add(w.id);
+      else this.prevPaid.delete(w.id);
+    }
+    this.prevSpent = spent;
+    for (const ev of g.pendingEvents) {
+      if (this.prevEvents.has(ev.id)) continue;
+      this.prevEvents.add(ev.id);
+      if (this.reduced) continue;
+      if (ev.kind === "viral") {
+        this.flash = 1;
+        this.flashColor = COLORS.pink;
+        this.shake = 0.5;
+      } else if (ev.kind === "outage") {
+        this.flash = 1;
+        this.flashColor = COLORS.red;
+        this.shake = 1;
+      }
+    }
+    if (this.prevEvents.size > 50) this.prevEvents = new Set(g.pendingEvents.map((e) => e.id));
+  }
+
+  /** Coins and floating numbers, drawn in screen space. */
+  private drawFx(main: CanvasRenderingContext2D, view: View, t: number, dt: number, z: number): void {
+    if (this.coins.length) {
+      main.fillStyle = COLORS.yellow;
+      main.shadowColor = COLORS.yellow;
+      main.shadowBlur = 6;
+      const r = Math.max(2, z * 0.9);
+      this.coins = this.coins.filter((c) => {
+        c.t += dt;
+        if (c.t < 0) return true;
+        const k = Math.min(1, c.t / c.dur);
+        const e = k * k * (3 - 2 * k);
+        const arc = Math.sin(k * Math.PI) * 40;
+        const x = c.x + (c.tx - c.x) * e;
+        const y = c.y + (c.ty - c.y) * e - arc;
+        main.fillRect(Math.round(x - r), Math.round(y - r), r * 2, r * 2);
+        return k < 1;
+      });
+      main.shadowBlur = 0;
+    }
+    if (this.floaters.length) {
+      main.textAlign = "center";
+      main.textBaseline = "bottom";
+      const size = Math.round(Math.max(14, Math.min(22, z * 4)));
+      main.font = `${size}px ${this.fontFamily}`;
+      this.floaters = this.floaters.filter((f) => {
+        f.t += dt;
+        const k = f.t / 1.3;
+        main.globalAlpha = k < 0.15 ? k / 0.15 : Math.max(0, 1 - (k - 0.5) / 0.5);
+        main.fillStyle = "rgba(7,7,13,0.7)";
+        const w = main.measureText(f.text).width;
+        main.fillRect(Math.round(f.x - w / 2 - 4), Math.round(f.y - k * 44 - size), Math.round(w + 8), size + 2);
+        main.fillStyle = f.color;
+        main.fillText(f.text, Math.round(f.x), Math.round(f.y - k * 44));
+        return k < 1;
+      });
+      main.globalAlpha = 1;
     }
   }
 

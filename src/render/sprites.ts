@@ -51,6 +51,8 @@ const LEGS_STAND: Grid = ["...PP..PP...", "...PP..PP...", "...PP..PP...", "...BB
 const LEGS_STRIDE: Grid = ["..PP....PP..", "..PP....PP..", ".PP......PP.", ".BBB.....BBB"];
 const LEGS_PASS: Grid = ["....PPPP....", "....PP.PP...", "....PP..PP..", "....BBB.BBB."];
 const LEGS_SIT: Grid = ["...PPPPPPP..", "........PP..", "........BBB."];
+/** Half stride, between the pass and the full stride. */
+const LEGS_HALF: Grid = ["...PP...PP..", "...PP...PP..", "..PP.....PP.", "..BBB...BBB."];
 
 const HAIR: Record<HairStyle, Grid> = {
   short: [],
@@ -111,9 +113,15 @@ export type FrameName =
   | "type0"
   | "type1"
   | "cheer0"
-  | "cheer1";
+  | "cheer1"
+  | "walk4"
+  | "walk5"
+  | "stretch"
+  | "stomp";
 
-export const FRAME_NAMES: FrameName[] = ["idle0", "idle1", "walk0", "walk1", "walk2", "walk3", "type0", "type1", "cheer0", "cheer1"];
+export const FRAME_NAMES: FrameName[] = ["idle0", "idle1", "walk0", "walk1", "walk2", "walk3", "type0", "type1", "cheer0", "cheer1", "walk4", "walk5", "stretch", "stomp"];
+/** 6-frame walk cycle: stride, half, pass, stride (mirrored legs read the same), half, stand-bob. */
+export const WALK_CYCLE: FrameName[] = ["walk0", "walk4", "walk2", "walk0", "walk5", "walk1"];
 
 const ARMS_UP: Grid = ["", "..S......S..", "..o......o..", "..o......o..", "..o......o..", "..o......o..", "..o......o.."];
 
@@ -130,6 +138,18 @@ export function composeFrame(look: Pick<WorkerLook, "hairStyle" | "accessory">, 
     case "walk1":
     case "walk3":
       return shift([...head(look, false), ...TORSO, ...LEGS_STAND], -1);
+    case "walk4":
+      return [...head(look, false), ...TORSO, ...LEGS_HALF];
+    case "walk5":
+      return shift([...head(look, false), ...TORSO, ...LEGS_HALF], -1);
+    case "stretch": {
+      // arms up, on tiptoe
+      const body = overlay([...head(look, false), ...TORSO, ...LEGS_STAND], ARMS_UP);
+      return shift(overlay(body, ["", "", "", "", "", "", "", "", "", "", ".._......_.."]), -1);
+    }
+    case "stomp":
+      // knees bent, body one pixel lower
+      return shift([...head(look, false), ...TORSO, ...LEGS_STAND], 1);
     case "type0":
     case "type1": {
       const torso = frame === "type0" ? TORSO_TYPE_A : TORSO_TYPE_B;

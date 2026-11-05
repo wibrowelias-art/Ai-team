@@ -294,8 +294,15 @@ export default function GameCanvas({ insets = { top: 0, bottom: 0 } }: { insets?
       }
     };
 
+    let anchorAt = 0;
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
+      if (t - anchorAt > 1000) {
+        anchorAt = t;
+        const r = document.querySelector("[data-testid=hud-cash]")?.getBoundingClientRect();
+        const c = canvas.getBoundingClientRect();
+        renderer.setAnchor(r ? { x: r.left + r.width / 2 - c.left, y: r.top + r.height / 2 - c.top } : null);
+      }
       const frameMs = t - last;
       const dt = Math.min(0.25, Math.max(0, frameMs / 1000));
       last = t;

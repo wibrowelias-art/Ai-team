@@ -11,7 +11,7 @@ Items are ordered by impact. Ticked = fixed.
 - [x] A3. **Name tags overlap** when two workers share a desk area ("MATTDENNIS", "FINZIGGY", "MAVERICKBUNC"). Tags need to push apart.
 - [x] A4. **Economy snowballs**: 30‑day run ends at $1.16M for a sensible player, $739K for a reckless one (huge bonuses, pay cuts, hiring everyone, floors on day 1) and $120K for a player who never touches anything. Nothing can go bankrupt. Fan/follower growth is proportional to itself (exponential). Needs saturation, higher late costs and real downside for reckless play.
 - [x] A5. **Early game too slow**: at 1x the first $1,000 of revenue takes ~10 real minutes. Target is under 3.
-- [ ] A6. **Event modal blocks the whole screen** including speed/pause while it waits. Acceptable, but the modal must then be obviously an event (it has no icon or color coding per kind) and show up on the log with its outcome exactly once (currently "Event: Worker drama 💢" and then "Worker drama: Sort it out…" as two lines).
+- [x] A6. **Event modal blocks the whole screen** including speed/pause while it waits. Acceptable, but the modal must then be obviously an event (it has no icon or color coding per kind) and show up on the log with its outcome exactly once (currently "Event: Worker drama 💢" and then "Worker drama: Sort it out…" as two lines).
 - [x] A7. **Default phone zoom shows workers ~25 px tall.** Spec says ≥ 40 px. Frame the building taller (crop the sky) and let the HUD float.
 - [x] A8. Meeting room panel shows the room blurb, floor, level and upgrade button **above** a live meeting. The live meeting should take the whole panel.
 - [x] A9. Mission progress bar: checked, `StatBar` already clamps to 100. Not a bug.
@@ -53,12 +53,12 @@ Items are ordered by impact. Ticked = fixed.
 
 ## E. Animation and feel
 
-- [ ] E1. Walk cycle is 4 frames; no acceleration, no blink/look-around, no stretch when tired, no high-five, no stomp.
-- [ ] E2. Elevator has no doors and no ease; pod moves linearly.
-- [ ] E3. No coin fly-in to the HUD when revenue arrives, no "+$240" floaters. (HUD numbers now count smoothly.)
+- [x] E1. Walk cycle is 4 frames; no acceleration, no blink/look-around, no stretch when tired, no high-five, no stomp.
+- [x] E2. Elevator has no doors and no ease; pod moves linearly.
+- [x] E3. No coin fly-in to the HUD when revenue arrives, no "+$240" floaters. (HUD numbers now count smoothly.)
 - [x] E4. Panels slide with a plain CSS ease, no spring; list items don't stagger; buttons have no press state.
-- [ ] E5. No screen flash / shake on viral hit or outage, no confetti on milestones.
-- [ ] E6. `prefers-reduced-motion` only disables CSS animations, not canvas camera easing or floaters.
+- [x] E5. No screen flash / shake on viral hit or outage, no confetti on milestones.
+- [x] E6. `prefers-reduced-motion` only disables CSS animations, not canvas camera easing or floaters.
 - [x] E7. No feedback sound on taps and panel opens.
 
 ## F. Gameplay feel
@@ -67,7 +67,7 @@ Items are ordered by impact. Ticked = fixed.
 - [ ] F2. No daily report card at the end of each game day.
 - [ ] F3. Workers never comment on events or celebrate wins together; Chill Bar has no gossip.
 - [ ] F4. Worker-initiated texts rarely mention concrete game things (a sale, a refund). Add real-data templates.
-- [ ] F5. Tutorial card sits over the view with no arrow pointing at the real control; add an arrow/pulse on the target.
+- [x] F5. Tutorial card sits over the view with no arrow pointing at the real control; add an arrow/pulse on the target.
 
 ## G. Chat polish
 
