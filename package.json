@@ -8,11 +8,12 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"**/*.report.ts\"",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "check:bundle": "node scripts/check-bundle.mjs"
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "balance": "vitest run tests/unit/balance.report.ts && cat balance-report.txt"
   },
   "dependencies": {
     "next": "16.4.5",
