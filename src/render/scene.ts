@@ -351,10 +351,88 @@ function drawRoom(ctx: Ctx, ectx: Ctx, light: Ctx, slot: RoomSlot, wall: string)
   glow(ctx, ectx, r.x + 1, base - 1, r.w - 2, 1, dim(def.color));
 
   drawProps(ctx, ectx, light, slot, r, base);
+  drawLevelExtras(ctx, ectx, light, slot, r, base);
 }
 
 const at = (r: Rect, s: Spot) => r.x + s.dx;
 const WY = (r: Rect) => r.y + CEIL + 6; // top of wall-mounted things
+
+export type ScreenKind = "map" | "bars" | "dollar" | "heart" | "ticker";
+export interface WallScreen extends Rect {
+  color: string;
+  kind: ScreenKind;
+}
+
+/** Wall screens per room type; the renderer animates their content every frame. */
+export function wallScreens(slot: RoomSlot): WallScreen[] {
+  const r = roomRect(slot);
+  const wy = WY(r);
+  switch (slot.type) {
+    case "COMMAND":
+      return [{ x: r.x + 8, y: wy, w: r.w - 16, h: 11, color: COLORS.cyan, kind: "map" }];
+    case "WAR_ROOM":
+      return [{ x: r.x + 14, y: wy, w: 36, h: 10, color: COLORS.red, kind: "bars" }];
+    case "REVENUE_BAY":
+      return [
+        { x: r.x + 8, y: wy, w: 32, h: 11, color: COLORS.green, kind: "bars" },
+        { x: r.x + 44, y: wy, w: 12, h: 11, color: COLORS.yellow, kind: "dollar" },
+      ];
+    case "TREASURY":
+      return [{ x: r.x + 8, y: wy, w: 24, h: 9, color: COLORS.yellow, kind: "bars" }];
+    case "CHILL":
+      return [{ x: r.x + 36, y: wy, w: 14, h: 9, color: COLORS.pink, kind: "heart" }];
+    case "TRADING_DESK":
+      return [{ x: r.x + 7, y: wy - 1, w: r.w - 14, h: 12, color: COLORS.green, kind: "ticker" }];
+    default:
+      return [];
+  }
+}
+
+/** Furniture that arrives with each upgrade level, so a Level 4 room looks the part. */
+function drawLevelExtras(ctx: Ctx, ectx: Ctx, light: Ctx, slot: RoomSlot, r: Rect, base: number): void {
+  const def = ROOM_DEFS[slot.type];
+  const wy = WY(r);
+  const lvl = slot.level;
+  if (lvl >= 2) {
+    // potted plant by the left wall
+    const px = r.x + DEPTH + 1;
+    rect(ctx, px, base - 4, 4, 4, "#5a3a2a");
+    rect(ctx, px, base - 4, 4, 1, "#8a5a3a");
+    rect(ctx, px - 1, base - 9, 6, 5, "#1d7a3e");
+    rect(ctx, px, base - 11, 4, 2, "#2a9a50");
+    rect(ctx, px + 1, base - 12, 2, 1, "#39ff88");
+  }
+  if (lvl >= 3) {
+    // framed print on the right wall, in the room's colour
+    const fx = r.x + r.w - DEPTH - 13;
+    const fy = wy + 13;
+    rect(ctx, fx, fy, 11, 8, "#3a3446");
+    rect(ctx, fx + 1, fy + 1, 9, 6, "#14121c");
+    glow(ctx, ectx, fx + 2, fy + 4, 7, 2, dim(def.color));
+    glow(ctx, ectx, fx + 3, fy + 2, 2, 2, def.color);
+    rect(ctx, fx + 6, fy + 2, 3, 1, dim(def.color));
+  }
+  if (lvl >= 4) {
+    // LED strip under the ceiling and a rug
+    glow(ctx, ectx, r.x + DEPTH + 2, r.y + CEIL + 1, r.w - DEPTH * 2 - 4, 1, dim(def.color));
+    softLight(light, r.x + r.w / 2, r.y + CEIL + 4, r.w * 0.5, def.color, 0.18);
+    const rx = r.x + r.w / 2 - 12;
+    rect(ctx, rx, base - 1, 24, 1, mix(def.color, 0.35));
+    rect(ctx, rx + 2, base - 1, 20, 1, mix(def.color, 0.5));
+  }
+  if (lvl >= 5) {
+    // trophy shelf and a neon underglow along the floor
+    const sx = r.x + DEPTH + 2;
+    const sy = wy + 16;
+    rect(ctx, sx, sy + 4, 14, 1, "#5a4a6a");
+    for (let i = 0; i < 3; i++) {
+      glow(ctx, ectx, sx + 1 + i * 5, sy + 1, 3, 2, COLORS.yellow);
+      rect(ctx, sx + 2 + i * 5, sy + 3, 1, 1, "#e0b23a");
+    }
+    glow(ctx, ectx, r.x + DEPTH, base - 1, r.w - DEPTH * 2, 1, def.color);
+    softLight(light, r.x + r.w / 2, base - 2, r.w * 0.6, def.color, 0.25);
+  }
+}
 
 function drawProps(ctx: Ctx, ectx: Ctx, light: Ctx, slot: RoomSlot, r: Rect, base: number): void {
   const def = ROOM_DEFS[slot.type];

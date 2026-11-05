@@ -47,8 +47,8 @@ Items are ordered by impact. Ticked = fixed.
 - [x] D6. Icons are emoji (bottom bar, business tabs, factory lines). Replace with one pixel icon set drawn in code.
 - [x] D7. Panel header: no icon, inconsistent close button (36×36). Add icon + 44 px close. Sticky action footer for panels with a primary action (Hire, Build, Meeting, Fire confirm, Chat input).
 - [x] D8. Panel border has no inner glow or texture; add subtle inner glow + noise.
-- [ ] D9. Upgrades don't change a room's look (only a pip column). Add furniture per level.
-- [ ] D10. Monitors are static; add moving screen content (ticker, bars, typing glow).
+- [x] D9. Upgrades don't change a room's look (only a pip column). Add furniture per level.
+- [x] D10. Monitors are static; add moving screen content (ticker, bars, typing glow).
 - [x] D11. Event modal title in pixel font renders emoji badly ("Worker drama 💢"). Use a pixel icon per event kind.
 
 ## E. Animation and feel

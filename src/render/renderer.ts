@@ -22,7 +22,7 @@ import { nightFactor, rainAmount, rgb, skyColors, weatherFor } from "./atmospher
 import { worldToScreen, type Camera, type View } from "./camera";
 import { makeSkyline, type Blinker } from "./city";
 import { drawPixelText, textWidth } from "./font";
-import { drawStatic, groundLine, laneY, staticKey, tunnelY } from "./scene";
+import { drawStatic, groundLine, laneY, staticKey, tunnelY, wallScreens } from "./scene";
 import { composeFrame, FRAME_H, FRAME_NAMES, FRAME_W, paintGrid, paletteFor, WALK_CYCLE, type FrameName } from "./sprites";
 import { reducedMotion } from "@/ui/motion";
 import { play } from "@/lib/sound";
@@ -331,6 +331,7 @@ export class Renderer {
     ectx.drawImage(this.staticEmissive, 0, 0);
     this.drawSigns(t);
     this.drawBlinkers(g, t);
+    if (quality > 0) this.drawScreens(g, t);
     this.updateCars(dt, quality);
     this.drawCars(night);
     this.drawTrain(dt);
@@ -622,6 +623,85 @@ export class Renderer {
       }
     }
     for (const b of this.blinkers) if ((t + b.phase) % b.period < b.period * 0.5) this.px(b.x, b.y, b.color);
+  }
+
+  /** Live content on the wall screens: scrolling tickers, breathing bar charts, a beating heart. */
+  private drawScreens(g: GameState, t: number): void {
+    const w = this.wctx;
+    const e = this.ectx;
+    const fill = (x: number, y: number, ww: number, hh: number, c: string, emissive = true) => {
+      w.fillStyle = c;
+      w.fillRect(x, y, ww, hh);
+      if (emissive) {
+        e.fillStyle = c;
+        e.fillRect(x, y, ww, hh);
+      }
+    };
+    for (const slot of g.building.rooms) {
+      if (slot.locked) continue;
+      for (const s of wallScreens(slot)) {
+        const seed = s.x * 31 + s.y;
+        // wipe the static picture, keep the bezel
+        fill(s.x, s.y, s.w, s.h, "#07080e", false);
+        e.clearRect(s.x, s.y, s.w, s.h);
+        if (s.kind === "bars") {
+          const n = Math.floor((s.w - 2) / 3);
+          for (let i = 0; i < n; i++) {
+            const k = 0.5 + 0.5 * Math.sin(t / 900 + i * 1.7 + seed);
+            const h = 1 + Math.round(k * (s.h - 3));
+            const live = Math.floor(t / 1100 + i) % n === 0;
+            fill(s.x + 1 + i * 3, s.y + s.h - 1 - h, 2, h, live ? "#ffffff" : s.color);
+          }
+        } else if (s.kind === "map") {
+          for (let i = 0; i < 40; i++) {
+            const x = s.x + 1 + ((Math.floor(hash(i + seed) * (s.w - 2) + t / 400) % (s.w - 2) + (s.w - 2)) % (s.w - 2));
+            fill(x, s.y + 1 + Math.floor(hash(i * 3 + seed) * (s.h - 2)), 1, 1, "#0d4a55", false);
+          }
+          for (let i = 0; i < 6; i++) {
+            const on = hash(Math.floor(t / 300) + i + seed) > 0.3;
+            if (on) fill(s.x + 2 + Math.floor(hash(i + 11 + seed) * (s.w - 4)), s.y + 2 + Math.floor(hash(i + 29 + seed) * (s.h - 4)), 1, 1, s.color);
+          }
+          const sweep = s.x + 1 + Math.floor((t / 40) % (s.w - 2));
+          fill(sweep, s.y + 1, 1, s.h - 2, "rgba(34,230,255,0.35)");
+        } else if (s.kind === "ticker") {
+          let y = s.y + 6;
+          const off = Math.floor(t / 120);
+          for (let i = 0; i < s.w - 2; i++) {
+            const step = hash(i + off + seed) < 0.5 ? -1 : 1;
+            y = Math.max(s.y + 1, Math.min(s.y + s.h - 2, y + step));
+            fill(s.x + 1 + i, y, 1, 1, (i + off) % 9 < 5 ? COLORS.green : COLORS.red);
+          }
+        } else if (s.kind === "dollar") {
+          const k = 0.6 + 0.4 * Math.max(0, Math.sin(t / 500));
+          const cx = s.x + Math.floor(s.w / 2) - 1;
+          const c = `rgba(255,216,74,${k})`;
+          for (const [dx, dy, ww, hh] of [
+            [0, 2, 3, 1],
+            [0, 4, 3, 1],
+            [0, 6, 3, 1],
+            [0, 2, 1, 3],
+            [2, 4, 1, 3],
+            [1, 1, 1, 7],
+          ])
+            fill(cx + dx, s.y + dy, ww, hh, c);
+        } else {
+          const beat = (t % 900) / 900;
+          const big = beat < 0.12 || (beat > 0.2 && beat < 0.3);
+          const cx = s.x + Math.floor(s.w / 2) - 3;
+          const cy = s.y + 2;
+          const c = big ? "#ffffff" : s.color;
+          for (const [dx, dy, ww, hh] of [
+            [0, 0, 2, 2],
+            [3, 0, 2, 2],
+            [-1, 1, 7, 2],
+            [0, 3, 5, 1],
+            [1, 4, 3, 1],
+            [2, 5, 1, 1],
+          ])
+            fill(cx + dx, cy + dy, ww, hh, c);
+        }
+      }
+    }
   }
 
   private updateCars(dt: number, quality: Quality): void {
