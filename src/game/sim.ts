@@ -1,0 +1,241 @@
+import { FOCUS_ROOM } from "./business";
+import { findRoom, initialBuilding, REST_ROOM_TYPES, ROOM_DEFS, spotX } from "./building";
+import { CYCLES_PER_DAY, SAVE_VERSION, START_CASH, START_MINUTE, type ThemeId } from "./constants";
+import { createWorker, CREW_SEEDS } from "./crew";
+import { barGossip, celebrate, morningText } from "./chatter";
+import { bubble, clamp, log, ownEconomy } from "./draft";
+import { bookMilestones } from "./milestones";
+import { newEconomy, runCycle, runDay } from "./economy";
+import { moveWorker, pickSpot, REST_KINDS, sendWorker, WORK_KINDS, type Rng } from "./movement";
+import { starterProducts } from "./products";
+import { cycleIndex, dayOf } from "./time";
+import type { GameState, RoomSlot, Worker } from "./types";
+import { effects, type Effects } from "./upgrades";
+
+export { isRiding, moveWorker, pickSpot, REST_KINDS, sendWorker, WORK_KINDS } from "./movement";
+export type { Rng } from "./movement";
+
+/** Small deterministic PRNG for tests and reproducible runs. */
+export function mulberry32(seed: number): Rng {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function newGameState(name: string, theme: ThemeId, rng: Rng = Math.random): GameState {
+  const building = initialBuilding();
+  const workers: Worker[] = [];
+  for (const seed of CREW_SEEDS) {
+    const room = findRoom(building, FOCUS_ROOM[seed.focus]) ?? building.rooms[0];
+    const w = createWorker(seed, room.floor, 0, rng);
+    const spot = pickSpot(room, WORK_KINDS, workers, rng) ?? 0;
+    w.x = spotX(room, spot);
+    w.target = { roomId: room.id, spot, purpose: "working" };
+    w.activity = "working";
+    w.facing = ROOM_DEFS[room.type].spots[spot].face;
+    w.timer = 20 + rng() * 60;
+    workers.push(w);
+  }
+  const company = name.trim() || "NEON HQ";
+  const s: GameState = {
+    version: SAVE_VERSION,
+    started: true,
+    company: { name: company, theme },
+    cash: START_CASH,
+    totalRevenue: 0,
+    totalSpent: 0,
+    minutes: START_MINUTE,
+    cyclesToday: 0,
+    building,
+    workers,
+    log: [{ t: START_MINUTE, text: `${company} opens its doors. Welcome, boss.`, kind: "system" }],
+    settings: { speed: 1, sound: true, scanlines: true, ai: true, graphics: "auto", music: 0.5, sfx: 0.8 },
+    savedAt: Date.now(),
+    economy: newEconomy(dayOf(START_MINUTE)),
+    products: [],
+    missions: [],
+    pendingEvents: [],
+    chats: {},
+    seq: 0,
+    meetings: [],
+    upgrades: { coffee: 0, pcs: 0, pool: 0, server_rack: 0, neon_sign: 0 },
+    candidates: [],
+    candidatesDay: 0,
+    tutorial: { step: 0, done: false },
+    milestones: { done: [], unseen: [], virals: 0 },
+    report: null,
+  };
+  const bunc = workers.find((w) => w.id === "bunc") ?? workers[0];
+  s.products = starterProducts(s, bunc, rng);
+  s.economy.launched.tshirt = s.products.length;
+  return s;
+}
+
+// ---------------------------------------------------------------- worker brains
+
+function decide(w: Worker, s: GameState, rng: Rng): void {
+  const b = s.building;
+  const now = s.minutes;
+  const home = findRoom(b, w.homeRoom);
+  if (w.energy < 25 && w.activity !== "resting") {
+    const rest = pickRestRoom(s, w, rng);
+    if (rest) {
+      sendWorker(w, rest.room, rest.spot, "resting");
+      bubble(w, "tired", now, 10);
+      return;
+    }
+  }
+
+  if (w.activity === "resting") {
+    if (w.energy >= 92 && home) {
+      const spot = pickSpot(home, WORK_KINDS, s.workers, rng, w.id) ?? 0;
+      sendWorker(w, home, spot, "working");
+    } else {
+      w.timer = 10;
+    }
+    return;
+  }
+
+  if (w.activity === "working" && rng() < 0.3) {
+    const others = b.rooms.filter((r) => !r.locked && r.id !== w.homeRoom);
+    const room = others[Math.floor(rng() * others.length)];
+    if (room) {
+      const spots = ROOM_DEFS[room.type].spots;
+      const spot = pickSpot(room, ["stand", ...REST_KINDS, "chair"], s.workers, rng, w.id) ?? Math.floor(rng() * spots.length);
+      sendWorker(w, room, spot, "visiting");
+      return;
+    }
+  }
+
+  if (home && w.target?.roomId !== home.id) {
+    const spot = pickSpot(home, WORK_KINDS, s.workers, rng, w.id) ?? 0;
+    sendWorker(w, home, spot, "working");
+    return;
+  }
+
+  w.activity = "working";
+  w.timer = 40 + rng() * 80;
+  if (rng() < 0.25 && !w.bubble) bubble(w, "idea", now, 6);
+}
+
+/** A rest room with a free rest spot, preferring the Chill Bar. */
+function pickRestRoom(s: GameState, w: Worker, rng: Rng): { room: RoomSlot; spot: number } | null {
+  const rooms = s.building.rooms.filter((r) => !r.locked && REST_ROOM_TYPES.includes(r.type));
+  const taken = new Set(s.workers.filter((o) => o.id !== w.id && o.target).map((o) => `${o.target!.roomId}:${o.target!.spot}`));
+  const free = rooms.filter((r) => ROOM_DEFS[r.type].spots.some((sp, i) => REST_KINDS.includes(sp.kind) && !taken.has(`${r.id}:${i}`)));
+  const pool = free.length ? free : rooms;
+  if (pool.length === 0) return null;
+  const room = pool.find((r) => r.type === "CHILL") && rng() < 0.5 ? pool.find((r) => r.type === "CHILL")! : pool[Math.floor(rng() * pool.length)];
+  const spot = pickSpot(room, REST_KINDS, s.workers, rng, w.id);
+  return spot === null ? null : { room, spot };
+}
+
+function arrive(w: Worker, s: GameState, rng: Rng): void {
+  const t = w.target;
+  w.activity = t?.purpose ?? "idle";
+  if (t) {
+    const room = findRoom(s.building, t.roomId);
+    if (room) w.facing = ROOM_DEFS[room.type].spots[t.spot]?.face ?? w.facing;
+    if (room?.type === "CHILL" && w.activity === "resting") barGossip(s, w, rng);
+  }
+  w.timer =
+    w.activity === "visiting"
+      ? 15 + rng() * 25
+      : w.activity === "resting"
+        ? 10
+        : w.activity === "meeting"
+          ? MEETING_MAX_MINUTES
+          : 40 + rng() * 80;
+}
+
+/** A meeting holds attendees at most this long; endMeeting releases them earlier. */
+export const MEETING_MAX_MINUTES = 240;
+
+function updateStats(w: Worker, dt: number, fx: Effects): void {
+  switch (w.activity) {
+    case "working":
+      w.energy = clamp(w.energy - 0.11 * fx.energyDrain * dt);
+      w.cycleWork += dt;
+      // Visible task bar: fills about once a day at full mood (missions overwrite it with real progress).
+      w.taskProgress = (w.taskProgress + dt * (0.055 + w.skill / 3000) * (0.5 + w.mood / 200)) % 100;
+      break;
+    case "resting":
+      w.energy = clamp(w.energy + 0.7 * fx.restRate * dt);
+      w.mood = clamp(w.mood + 0.04 * fx.restRate * dt);
+      break;
+    case "walking":
+    case "visiting":
+    case "meeting":
+      w.energy = clamp(w.energy - 0.05 * dt);
+      w.mood = clamp(w.mood + 0.01 * dt);
+      break;
+    default:
+      break;
+  }
+  if (w.energy < 15) w.mood = clamp(w.mood - 0.03 * dt);
+}
+
+function stepWorkers(s: GameState, dt: number, rng: Rng, fx: Effects): void {
+  for (const w of s.workers) {
+    if (w.bubble && w.bubble.until <= s.minutes) w.bubble = null;
+    updateStats(w, dt, fx);
+    if (w.activity === "walking") {
+      if (moveWorker(w, dt)) arrive(w, s, rng);
+      continue;
+    }
+    w.timer -= dt;
+    const exhausted = w.energy < 25 && w.activity !== "resting" && w.activity !== "meeting";
+    if (w.timer <= 0 || exhausted) decide(w, s, rng);
+  }
+}
+
+// ---------------------------------------------------------------- step
+
+export interface StepOptions {
+  /** offline catch-up: events resolve themselves and products auto-approve */
+  offline?: boolean;
+}
+
+/** Advance the world by dtMin game minutes. Returns a new state object; the input is not mutated. */
+export function step(state: GameState, dtMin: number, rng: Rng = Math.random, opts: StepOptions = {}): GameState {
+  if (dtMin <= 0) return state;
+  const s: GameState = { ...state, workers: state.workers.map((w) => ({ ...w })) };
+  let owned = false;
+  // Rooms and upgrades only change through player actions, so this holds for the whole step.
+  const fx = effects(s);
+  let remaining = dtMin;
+  while (remaining > 0) {
+    const dt = Math.min(1, remaining);
+    remaining -= dt;
+    const before = s.minutes;
+    s.minutes += dt;
+    stepWorkers(s, dt, rng, fx);
+    const crossed = cycleIndex(s.minutes) - cycleIndex(before);
+    for (let i = 1; i <= crossed; i++) {
+      if (!owned) {
+        ownEconomy(s);
+        s.workers = s.workers.map((w) => ({ ...w, relationships: { ...w.relationships } }));
+        owned = true;
+      }
+      const c = cycleIndex(before) + i;
+      runCycle(s, rng, { offline: !!opts.offline });
+      const reached = bookMilestones(s);
+      if (reached.length > 0 && !opts.offline) celebrate(s, reached[0].title, rng);
+      if (c % CYCLES_PER_DAY === 0) {
+        runDay(s, rng);
+        s.cyclesToday = 0;
+        log(s, `Day ${dayOf(s.minutes)} begins.`, "system");
+        if (!opts.offline) s.report = dayOf(s.minutes) - 1;
+        morningText(s, rng);
+      } else {
+        s.cyclesToday += 1;
+      }
+    }
+  }
+  return s;
+}
