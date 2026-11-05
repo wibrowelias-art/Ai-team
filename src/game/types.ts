@@ -261,6 +261,13 @@ export interface MeetingRecord {
   decisions: string[];
 }
 
+export interface MilestoneState {
+  done: string[];
+  unseen: string[];
+  /** viral hits so far */
+  virals: number;
+}
+
 export interface LogEntry {
   t: number;
   text: string;
@@ -296,6 +303,10 @@ export interface GameState {
   candidates: Candidate[];
   candidatesDay: number;
   tutorial: { step: number; done: boolean };
+  /** company milestones: reached ids, ids not yet celebrated on screen, and counters they need */
+  milestones: MilestoneState;
+  /** day number of a finished day whose report card has not been shown yet */
+  report: number | null;
   version: number;
   started: boolean;
   company: { name: string; theme: ThemeId };

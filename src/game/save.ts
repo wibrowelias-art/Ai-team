@@ -85,6 +85,8 @@ export function migrate(input: GameState): GameState {
     candidatesDay: typeof input.candidatesDay === "number" ? input.candidatesDay : 0,
     // Players who already have a running company skip the tutorial.
     tutorial: input.tutorial ?? { step: 0, done: input.minutes > START_MINUTE + 120 },
+    milestones: { done: [], unseen: [], virals: 0, ...((input.milestones ?? {}) as Partial<GameState["milestones"]>) },
+    report: typeof input.report === "number" ? input.report : null,
   };
   if (!s.economy || typeof s.economy !== "object") {
     // v1 → v2: the economy arrives.

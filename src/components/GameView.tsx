@@ -8,7 +8,7 @@ import BottomBar from "./BottomBar";
 import GameCanvas from "./GameCanvas";
 import Hud from "./Hud";
 import { CrewPanel, WorkerPanel } from "./panels/CrewPanels";
-import { AwayModal, EventModal, Toasts } from "./Overlays";
+import { AwayModal, EventModal, MilestoneBanner, ReportModal, Toasts } from "./Overlays";
 import { FactoryPanel, LogPanel, RevenuePanel, RoomPanel, SettingsPanel, TreasuryPanel } from "./panels/OtherPanels";
 import { BuildPanel, HirePanel } from "./panels/BuildPanels";
 import ChatPanel from "./panels/ChatPanel";
@@ -220,6 +220,8 @@ export default function GameView() {
           <SoundDirector />
           <Tutorial />
           <Panels />
+          <MilestoneBanner />
+          <ReportModal />
           <EventModal />
           <AwayModal />
         </div>

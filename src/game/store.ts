@@ -5,6 +5,7 @@ import * as A from "./actions";
 import * as B from "./build";
 import * as H from "./hiring";
 import { GAME_MIN_PER_REAL_SEC, type Speed, type ThemeId } from "./constants";
+import { withMilestones } from "./milestones";
 import { applyOffline, type AwaySummary } from "./offline";
 import { clearSave, saveGame } from "./save";
 import { newGameState, step } from "./sim";
@@ -76,6 +77,10 @@ interface Store {
   toast: (text: string, kind?: Toast["kind"], workerId?: string) => void;
   dismissToast: (id: number) => void;
   dismissAway: () => void;
+  /** close the daily report card */
+  dismissReport: () => void;
+  /** the milestone celebration has been shown */
+  ackMilestones: () => void;
 
   payBonus: (workerId: string, amount: number) => boolean;
   giveRaise: (workerId: string, delta: number) => boolean;
@@ -114,7 +119,7 @@ export const useGame = create<Store>((set, get) => {
       get().toast(r.error, "error");
       return false;
     }
-    set({ game: r.state });
+    set({ game: withMilestones(r.state) });
     return true;
   };
 
@@ -195,6 +200,16 @@ export const useGame = create<Store>((set, get) => {
     dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 
     dismissAway: () => set({ away: null }),
+
+    dismissReport: () => {
+      const g = get().game;
+      if (g && g.report !== null) set({ game: { ...g, report: null } });
+    },
+
+    ackMilestones: () => {
+      const g = get().game;
+      if (g && g.milestones.unseen.length) set({ game: { ...g, milestones: { ...g.milestones, unseen: [] } } });
+    },
 
     payBonus: (workerId, amount) => run((g) => A.payBonus(g, workerId, amount)),
     giveRaise: (workerId, delta) => run((g) => A.giveRaise(g, workerId, delta)),

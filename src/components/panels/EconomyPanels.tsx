@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BUSINESSES, BUSINESS_INFO, FOCUS_LABEL, PRODUCT_INFO } from "@/game/business";
 import { MAX_BUDGET } from "@/game/constants";
 import { budgetFactor, demandFactor, hasOutage } from "@/game/economy";
+import { MILESTONES } from "@/game/milestones";
 import { MISSIONS } from "@/game/missions";
 import { useGame } from "@/game/store";
 import { formatMoney } from "@/game/time";
@@ -332,8 +333,41 @@ export function CommandContent({ game }: { game: GameState }) {
   const validWorker = free.some((w) => w.id === workerId) ? workerId : (free[0]?.id ?? "");
   const select = "h-11 w-full rounded-button border border-line bg-raised px-3 text-md text-ink";
 
+  const done = new Set(game.milestones.done);
+  const next = MILESTONES.filter((m) => !done.has(m.id)).slice(0, 3);
+  const reached = MILESTONES.filter((m) => done.has(m.id));
+
   return (
     <div data-testid="command-content">
+      <Section title={`Milestones · ${reached.length}/${MILESTONES.length}`}>
+        <ul className="stagger flex flex-col gap-2" data-testid="milestones">
+          {next.map((m) => {
+            const p = Math.min(100, Math.round(m.progress(game) * 100));
+            return (
+              <li key={m.id} className="rounded-button border border-line bg-raised p-3" data-testid={`milestone-${m.id}`}>
+                <div className="flex items-center gap-2">
+                  <Icon name="trophy" size={12} color={T.yellow} />
+                  <span className="font-pixel text-md text-ink">{m.title}</span>
+                  <span className="ml-auto shrink-0 font-pixel text-md text-yellow">+{formatMoney(m.reward)}</span>
+                </div>
+                <div className="text-xs text-ink2">{m.detail}</div>
+                <div className="mt-1">
+                  <StatBar label="" value={p} color={T.yellow} />
+                </div>
+              </li>
+            );
+          })}
+          {reached.length > 0 && (
+            <li className="flex flex-wrap gap-1.5 pt-1">
+              {reached.map((m) => (
+                <span key={m.id} className="inline-flex items-center gap-1 rounded-chip bg-raised px-2 py-1 text-xs text-green">
+                  <Icon name="check" size={9} /> {m.title}
+                </span>
+              ))}
+            </li>
+          )}
+        </ul>
+      </Section>
       <Section title={`Active missions · ${active.length}`}>
         {active.length === 0 ? (
           <Empty icon="star" text="No missions running. Give someone a goal with a deadline and a cash reward." />

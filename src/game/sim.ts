@@ -2,7 +2,9 @@ import { FOCUS_ROOM } from "./business";
 import { findRoom, initialBuilding, REST_ROOM_TYPES, ROOM_DEFS, spotX } from "./building";
 import { CYCLES_PER_DAY, SAVE_VERSION, START_CASH, START_MINUTE, type ThemeId } from "./constants";
 import { createWorker, CREW_SEEDS } from "./crew";
+import { barGossip, celebrate, morningText } from "./chatter";
 import { bubble, clamp, log, ownEconomy } from "./draft";
+import { bookMilestones } from "./milestones";
 import { newEconomy, runCycle, runDay } from "./economy";
 import { moveWorker, pickSpot, REST_KINDS, sendWorker, WORK_KINDS, type Rng } from "./movement";
 import { starterProducts } from "./products";
@@ -65,6 +67,8 @@ export function newGameState(name: string, theme: ThemeId, rng: Rng = Math.rando
     candidates: [],
     candidatesDay: 0,
     tutorial: { step: 0, done: false },
+    milestones: { done: [], unseen: [], virals: 0 },
+    report: null,
   };
   const bunc = workers.find((w) => w.id === "bunc") ?? workers[0];
   s.products = starterProducts(s, bunc, rng);
@@ -137,6 +141,7 @@ function arrive(w: Worker, s: GameState, rng: Rng): void {
   if (t) {
     const room = findRoom(s.building, t.roomId);
     if (room) w.facing = ROOM_DEFS[room.type].spots[t.spot]?.face ?? w.facing;
+    if (room?.type === "CHILL" && w.activity === "resting") barGossip(s, w, rng);
   }
   w.timer =
     w.activity === "visiting"
@@ -219,10 +224,14 @@ export function step(state: GameState, dtMin: number, rng: Rng = Math.random, op
       }
       const c = cycleIndex(before) + i;
       runCycle(s, rng, { offline: !!opts.offline });
+      const reached = bookMilestones(s);
+      if (reached.length > 0 && !opts.offline) celebrate(s, reached[0].title, rng);
       if (c % CYCLES_PER_DAY === 0) {
         runDay(s, rng);
         s.cyclesToday = 0;
         log(s, `Day ${dayOf(s.minutes)} begins.`, "system");
+        if (!opts.offline) s.report = dayOf(s.minutes) - 1;
+        morningText(s, rng);
       } else {
         s.cyclesToday += 1;
       }

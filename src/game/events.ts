@@ -1,6 +1,7 @@
 /** Random events: each shows a popup with 2-3 choices and clear consequences. */
 import { findRoom } from "./building";
 import { BUSINESS_INFO, PRODUCT_INFO } from "./business";
+import { reactToEvent } from "./chatter";
 import { bubble, clamp, log, nextId, otherIncome, say, spend } from "./draft";
 import { line } from "./lines";
 import { pickSpot, sendWorker } from "./movement";
@@ -56,6 +57,7 @@ function create(s: GameState, kind: Kind, rng: Rng): GameEvent | null {
         until: s.minutes + 24 * 60,
         productId: single ? p.id : undefined,
       });
+      s.milestones = { ...s.milestones, virals: s.milestones.virals + 1 };
       const b = s.economy.businesses;
       if (business === "music") b.music.fans = Math.round(b.music.fans * 1.25);
       if (business === "social") b.social.followers = Math.round(b.social.followers * 1.25);
@@ -317,5 +319,6 @@ export function resolveEvent(s: GameState, eventId: string, choice: number, rng:
   }
   s.pendingEvents = s.pendingEvents.filter((e) => e.id !== eventId);
   log(s, `⚡ ${plainTitle(ev.title)}: ${ev.choices[choice].label}.`, "system");
+  reactToEvent(s, ev, rng);
   return null;
 }

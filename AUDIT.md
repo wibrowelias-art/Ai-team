@@ -63,10 +63,10 @@ Items are ordered by impact. Ticked = fixed.
 
 ## F. Gameplay feel
 
-- [ ] F1. No milestone track (first $10k, 10 workers, 5 floors, first viral hit, $1M revenue).
-- [ ] F2. No daily report card at the end of each game day.
-- [ ] F3. Workers never comment on events or celebrate wins together; Chill Bar has no gossip.
-- [ ] F4. Worker-initiated texts rarely mention concrete game things (a sale, a refund). Add real-data templates.
+- [x] F1. No milestone track (first $10k, 10 workers, 5 floors, first viral hit, $1M revenue).
+- [x] F2. No daily report card at the end of each game day.
+- [x] F3. Workers never comment on events or celebrate wins together; Chill Bar has no gossip.
+- [x] F4. Worker-initiated texts rarely mention concrete game things (a sale, a refund). Add real-data templates.
 - [x] F5. Tutorial card sits over the view with no arrow pointing at the real control; add an arrow/pulse on the target.
 
 ## G. Chat polish

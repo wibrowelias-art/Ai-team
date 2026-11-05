@@ -29,13 +29,15 @@ function useTutorialWatcher() {
       const g = st.game;
       if (!g || g.tutorial.done) return;
       const done = st.tutorialDone;
+      // Log lines added by this state change (entries are reused by reference between states).
+      const fresh = g.log === prev.game?.log ? [] : g.log.filter((l) => !prev.game?.log.includes(l));
+      const logged = (re: RegExp) => fresh.some((l) => re.test(l.text));
       switch (g.tutorial.step) {
         case 0:
           if (st.panel?.id === "worker" || st.panel?.id === "chat") done(0);
           break;
         case 1: {
-          const paid = g.log !== prev.game?.log && /^Paid .+ bonus/.test(g.log[g.log.length - 1]?.text ?? "");
-          if (paid) done(1);
+          if (logged(/^Paid .+ bonus/)) done(1);
           break;
         }
         case 2:
@@ -45,8 +47,7 @@ function useTutorialWatcher() {
           if (st.meeting && !prev.meeting) done(3);
           break;
         case 4: {
-          const built = g.log !== prev.game?.log && /^🏗️ Built/.test(g.log[g.log.length - 1]?.text ?? "");
-          if (built) {
+          if (logged(/^🏗️ Built/)) {
             done(4);
             st.toast("Tutorial complete. You're the boss now.", "info");
           }

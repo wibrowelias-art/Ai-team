@@ -294,6 +294,7 @@ input[type="range"].slider::-moz-range-thumb {
   .animate-flicker,
   .animate-shake,
   .animate-flash,
+  .confetti,
   .stagger > * {
     animation: none !important;
   }
