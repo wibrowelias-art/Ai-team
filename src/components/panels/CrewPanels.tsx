@@ -4,7 +4,7 @@ import { findRoom, floorBase, ROOM_DEFS } from "@/game/building";
 import { FOCUS_LABEL } from "@/game/business";
 import { COLORS } from "@/game/constants";
 import { useGame } from "@/game/store";
-import PayBox, { FOCUSES } from "./PayBox";
+import PayBox, { FireBox, FOCUSES } from "./PayBox";
 import { formatMoney } from "@/game/time";
 import Panel from "../Panel";
 import Portrait from "../Portrait";
@@ -24,9 +24,14 @@ export function CrewPanel({ onClose }: { onClose: () => void }) {
         <p className="font-pixel text-[15px] text-white/60">
           Payroll <span className="text-hud">{formatMoney(payroll)}</span>/day
         </p>
-        <NeonButton color={COLORS.red} onClick={() => openPanel({ id: "meeting" })} testId="open-meeting">
-          📣 Meeting
-        </NeonButton>
+        <div className="flex gap-1.5">
+          <NeonButton color={COLORS.green} onClick={() => openPanel({ id: "hire" })} testId="open-hire">
+            + Hire
+          </NeonButton>
+          <NeonButton color={COLORS.red} onClick={() => openPanel({ id: "meeting" })} testId="open-meeting">
+            📣 Meeting
+          </NeonButton>
+        </div>
       </div>
       <ul className="flex flex-col gap-2">
         {game.workers.map((w) => (
@@ -208,6 +213,7 @@ export function WorkerPanel({ id, onClose }: { id: string; onClose: () => void }
           </ul>
         )}
       </Section>
+      <FireBox workerId={w.id} name={w.name} salary={w.salary} />
     </Panel>
   );
 }

@@ -12,6 +12,7 @@ import Portrait from "../Portrait";
 import { activityLabel, NeonButton, Section, Soon } from "../ui";
 import { CommandContent, FactoryContent, RevenueContent, TreasuryContent } from "./EconomyPanels";
 import { MeetingContent } from "./MeetingPanel";
+import { RoomBuildBox } from "./BuildPanels";
 import { aiCallsLeft } from "@/lib/aiClient";
 import { usePolledGame } from "../usePolled";
 
@@ -33,11 +34,10 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
           {room.locked ? "LOCKED" : `Level ${room.level}/5`}
         </span>
       </div>
-      {room.locked ? (
-        <Section title="Build">
-          <Soon>Building and upgrading rooms unlocks in Phase 4.</Soon>
-        </Section>
-      ) : (
+      <div className="mt-3">
+        <RoomBuildBox room={room} cash={game.cash} compact={!room.locked} />
+      </div>
+      {room.locked ? null : (
         <>
           {/* The War Room is all about the meeting, so its occupant list is skipped. */}
           {room.type !== "WAR_ROOM" && (
@@ -141,33 +141,6 @@ export function FactoryPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function BuildPanel({ onClose }: { onClose: () => void }) {
-  const game = usePolledGame(1000);
-  if (!game) return null;
-  const locked = game.building.rooms.filter((r) => r.locked);
-  return (
-    <Panel title="Build" accent={COLORS.purple} onClose={onClose} testId="panel-build">
-      <Section title="Locked rooms">
-        <ul className="flex flex-col gap-2">
-          {locked.map((r) => (
-            <li key={r.id} className="flex items-center justify-between rounded border border-white/10 bg-black/20 p-2">
-              <div>
-                <div className="font-pixel text-base text-white">{ROOM_DEFS[r.type].name}</div>
-                <div className="text-[11px] text-white/50">{ROOM_DEFS[r.type].blurb}</div>
-              </div>
-              <NeonButton color={COLORS.purple} disabled title="Building arrives in Phase 4">
-                Build
-              </NeonButton>
-            </li>
-          ))}
-        </ul>
-      </Section>
-      <Section title="More">
-        <Soon>New floors, room upgrades and shop items (coffee machine, better PCs, pool table, server rack, neon sign) arrive in Phase 4.</Soon>
-      </Section>
-    </Panel>
-  );
-}
 
 const LOG_COLORS: Record<LogEntry["kind"], string> = {
   info: "text-white/75",

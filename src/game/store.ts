@@ -2,15 +2,20 @@
 
 import { create } from "zustand";
 import * as A from "./actions";
+import * as B from "./build";
+import * as H from "./hiring";
 import { GAME_MIN_PER_REAL_SEC, type Speed, type ThemeId } from "./constants";
 import { applyOffline, type AwaySummary } from "./offline";
 import { clearSave, saveGame } from "./save";
 import { newGameState, step } from "./sim";
-import type { BusinessId, Focus, GameState, MeetingLine, Settings } from "./types";
+import type { BusinessId, Focus, GameState, MeetingLine, Settings, UpgradeId } from "./types";
+
+/** Number of tutorial steps (see components/Tutorial.tsx). */
+export const TUTORIAL_STEPS = 5;
 import type { DecisionOutcome } from "./ai/apply";
 import type { MeetingDecision } from "./ai/types";
 
-export type PanelId = "crew" | "treasury" | "factory" | "build" | "log" | "settings" | "room" | "worker" | "revenue" | "chat" | "meeting";
+export type PanelId = "crew" | "treasury" | "factory" | "build" | "log" | "settings" | "room" | "worker" | "revenue" | "chat" | "meeting" | "hire";
 
 /** A meeting in progress (not saved; finished transcripts are kept in the game state). */
 export interface LiveMeeting {
@@ -78,6 +83,19 @@ interface Store {
   rejectProduct: (id: string) => boolean;
   assignMission: (workerId: string, templateId: string) => boolean;
   resolveEvent: (eventId: string, choice: number) => boolean;
+
+  buildRoom: (roomId: string) => boolean;
+  upgradeRoom: (roomId: string) => boolean;
+  addFloor: () => boolean;
+  buyUpgrade: (id: UpgradeId) => boolean;
+  refreshCandidates: () => void;
+  rerollCandidates: () => boolean;
+  skipCandidate: (id: string) => void;
+  hire: (candidateId: string) => boolean;
+  fire: (workerId: string) => boolean;
+  /** advance the tutorial past `step` (no-op if it is elsewhere) */
+  tutorialDone: (step: number) => void;
+  skipTutorial: () => void;
 }
 
 let toastSeq = 0;
@@ -172,5 +190,37 @@ export const useGame = create<Store>((set, get) => {
     rejectProduct: (id) => run((g) => A.rejectProduct(g, id)),
     assignMission: (workerId, templateId) => run((g) => A.assignMission(g, workerId, templateId)),
     resolveEvent: (eventId, choice) => run((g) => A.resolveEvent(g, eventId, choice)),
+
+    buildRoom: (roomId) => run((g) => B.buildRoom(g, roomId)),
+    upgradeRoom: (roomId) => run((g) => B.upgradeRoom(g, roomId)),
+    addFloor: () => run((g) => B.addFloor(g)),
+    buyUpgrade: (id) => run((g) => B.buyUpgrade(g, id)),
+    refreshCandidates: () => {
+      const g = get().game;
+      if (!g) return;
+      const next = H.ensureCandidates(g, Math.random);
+      if (next !== g) set({ game: next });
+    },
+    rerollCandidates: () => run((g) => H.rerollCandidates(g, Math.random)),
+    skipCandidate: (id) => {
+      const g = get().game;
+      if (g) set({ game: { ...g, candidates: g.candidates.filter((c) => c.id !== id) } });
+    },
+    hire: (candidateId) => run((g) => H.hire(g, candidateId, Math.random)),
+    fire: (workerId) => {
+      const ok = run((g) => H.fire(g, workerId, Math.random));
+      if (ok) set({ panel: null, selectedWorkerId: null });
+      return ok;
+    },
+    tutorialDone: (step) => {
+      const g = get().game;
+      if (!g || g.tutorial.done || g.tutorial.step !== step) return;
+      const next = step + 1;
+      set({ game: { ...g, tutorial: { step: next, done: next >= TUTORIAL_STEPS } } });
+    },
+    skipTutorial: () => {
+      const g = get().game;
+      if (g) set({ game: { ...g, tutorial: { ...g.tutorial, done: true } } });
+    },
   };
 });

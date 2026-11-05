@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useGame } from "@/game/store";
 import type { Focus } from "@/game/types";
 import { Section } from "../ui";
@@ -73,5 +74,38 @@ export default function PayBox({ workerId, name, cash }: { workerId: string; nam
         </div>
       </div>
     </Section>
+  );
+}
+
+/** Fire button with a confirm step. */
+export function FireBox({ workerId, name, salary }: { workerId: string; name: string; salary: number }) {
+  const fire = useGame((s) => s.fire);
+  const [confirming, setConfirming] = useState(false);
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="mt-5 w-full rounded border border-danger/30 py-1.5 font-pixel text-[15px] text-danger/80 hover:bg-danger/10"
+        data-testid="fire"
+      >
+        Fire {name}
+      </button>
+    );
+  }
+  return (
+    <div role="alertdialog" aria-label={`Fire ${name}?`} className="mt-5 rounded border border-danger/60 bg-danger/10 p-3" data-testid="fire-confirm">
+      <p className="text-sm text-white">
+        Fire {name}? Severance is ${salary}. The crew will not love it.
+      </p>
+      <div className="mt-2 flex gap-2">
+        <button type="button" onClick={() => setConfirming(false)} className="flex-1 rounded border border-white/20 py-1.5 font-pixel text-[15px] text-white/80">
+          Cancel
+        </button>
+        <button type="button" onClick={() => fire(workerId)} className="flex-1 rounded bg-danger py-1.5 font-pixel text-[15px] text-white" data-testid="fire-yes">
+          Fire
+        </button>
+      </div>
+    </div>
   );
 }

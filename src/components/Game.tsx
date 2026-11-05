@@ -10,7 +10,8 @@ import Hud from "./Hud";
 import Intro from "./Intro";
 import { CrewPanel, WorkerPanel } from "./panels/CrewPanels";
 import { AwayModal, EventModal, Toasts } from "./Overlays";
-import { BuildPanel, FactoryPanel, LogPanel, RevenuePanel, RoomPanel, SettingsPanel, TreasuryPanel } from "./panels/OtherPanels";
+import { FactoryPanel, LogPanel, RevenuePanel, RoomPanel, SettingsPanel, TreasuryPanel } from "./panels/OtherPanels";
+import { BuildPanel, HirePanel } from "./panels/BuildPanels";
 import ChatPanel from "./panels/ChatPanel";
 import { advanceMeeting, MEETING_LINE_INTERVAL_MS, workerTextTick } from "@/game/aiStore";
 
@@ -76,6 +77,8 @@ function Panels() {
       return <ChatPanel key={panel.ref} workerId={panel.ref ?? ""} onClose={close} />;
     case "meeting":
       return <RoomPanel id="war_room" onClose={close} />;
+    case "hire":
+      return <HirePanel onClose={close} />;
   }
 }
 

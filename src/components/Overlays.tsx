@@ -137,10 +137,11 @@ export function Toasts() {
       for (const m of thread) {
         if (seen.current.has(m.id)) continue;
         seen.current.add(m.id);
-        // No toast for the chat that is already open on screen.
+        // No toast for the chat that is already open on screen, or for old messages (e.g. an imported save).
         const open = useGame.getState().panel;
         const watching = open?.id === "chat" && open.ref === workerId;
-        if (m.from === "worker" && !watching) toast(m.text, "message", workerId);
+        const fresh = m.t >= game.minutes - 10;
+        if (m.from === "worker" && !watching && fresh) toast(m.text, "message", workerId);
       }
     }
   }, [game, toast]);

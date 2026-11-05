@@ -129,7 +129,16 @@ export class Renderer {
       cx.fillRect(0, 0, 1, c.height);
       cx.fillRect(c.width - 1, 0, 1, c.height);
       drawPixelText(cx, text, 2, 2, slot.locked ? "#3a3650" : def.color);
-      this.signs.push({ canvas: c, x: Math.round(r.x + (r.w - c.width) / 2), y: r.y + 1, seed: slot.locked ? -1 : i * 13 + 5 });
+      const sx = Math.round(r.x + (r.w - c.width) / 2);
+      this.signs.push({ canvas: c, x: sx, y: r.y + 1, seed: slot.locked ? -1 : i * 13 + 5 });
+      // Level pips for upgraded rooms: a small column in the room's top-left corner.
+      if (!slot.locked && slot.level > 1) {
+        const pc = makeCanvas(2, slot.level * 2 - 1);
+        const pctx = ctx2d(pc);
+        pctx.fillStyle = COLORS.yellow;
+        for (let k = 0; k < slot.level; k++) pctx.fillRect(0, k * 2, 2, 1);
+        this.signs.push({ canvas: pc, x: r.x + 2, y: r.y + 2, seed: i * 13 + 6 });
+      }
     });
     // Rooftop billboard
     const theme = THEMES[g.company.theme];

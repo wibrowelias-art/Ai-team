@@ -301,6 +301,86 @@ function drawRoom(ctx: Ctx, ectx: Ctx, slot: RoomSlot, wall: string): void {
       glow(ctx, ectx, r.x + 51, base - 14, 4, 3, COLORS.purple);
       break;
     }
+    case "MARKETING_LAB": {
+      // whiteboard with sticky notes + ring light
+      rect(ctx, r.x + 6, r.y + 10, 30, 13, "#d8d4e8");
+      rect(ctx, r.x + 6, r.y + 23, 30, 1, "#8a84a8");
+      const notes = [COLORS.yellow, COLORS.pink, COLORS.cyan, COLORS.green];
+      for (let i = 0; i < 6; i++) rect(ctx, r.x + 8 + (i % 3) * 9, r.y + 12 + Math.floor(i / 3) * 5, 4, 3, notes[i % 4]);
+      rect(ctx, r.x + 56, base - 26, 1, 26, "#3a3450");
+      glow(ctx, ectx, r.x + 53, base - 31, 7, 1, "#fff6e0");
+      glow(ctx, ectx, r.x + 53, base - 31, 1, 5, "#fff6e0");
+      glow(ctx, ectx, r.x + 59, base - 31, 1, 5, "#fff6e0");
+      glow(ctx, ectx, r.x + 53, base - 27, 7, 1, "#fff6e0");
+      def.spots.filter((s) => s.kind === "desk").forEach((s) => drawDesk(ctx, ectx, at(s), base, COLORS.pink));
+      break;
+    }
+    case "RECORDING_STUDIO": {
+      // acoustic foam
+      for (let i = 0; i < 4; i++)
+        for (let j = 0; j < 2; j++) rect(ctx, r.x + 40 + i * 7, r.y + 10 + j * 7, 6, 6, (i + j) % 2 ? "#2a1f3e" : "#33264c");
+      // mixing desk with glowing faders
+      rect(ctx, r.x + 6, base - 9, 26, 3, "#2a2438");
+      for (let i = 0; i < 8; i++) glow(ctx, ectx, r.x + 8 + i * 3, base - 9 + (i % 3 === 0 ? 0 : 1), 1, 1, i % 2 ? COLORS.cyan : COLORS.purple);
+      rect(ctx, r.x + 8, base - 6, 1, 6, "#1c1828");
+      rect(ctx, r.x + 29, base - 6, 1, 6, "#1c1828");
+      // mic stand
+      rect(ctx, r.x + 50, base - 18, 1, 18, "#6c7488");
+      rect(ctx, r.x + 48, base - 1, 5, 1, "#6c7488");
+      rect(ctx, r.x + 49, base - 21, 3, 3, "#9aa3b5");
+      glow(ctx, ectx, r.x + 30, r.y + 10, 6, 3, COLORS.red);
+      break;
+    }
+    case "VAULT": {
+      const cx = r.x + 22;
+      const cy = r.y + 24;
+      for (let dy = -12; dy <= 12; dy++)
+        for (let dx = -12; dx <= 12; dx++) {
+          const d = Math.hypot(dx, dy);
+          if (d <= 12) rect(ctx, cx + dx, cy + dy, 1, 1, d > 10 ? "#5a5470" : d > 4 ? "#3a3450" : "#4a4460");
+        }
+      rect(ctx, cx - 7, cy, 15, 1, "#6c7488");
+      rect(ctx, cx, cy - 7, 1, 15, "#6c7488");
+      glow(ctx, ectx, cx + 9, cy - 9, 1, 1, COLORS.green);
+      // gold bars
+      for (let i = 0; i < 3; i++) for (let j = 0; j <= i; j++) rect(ctx, r.x + 44 + j * 7 + (2 - i) * 3, base - 4 - (2 - i) * 3, 6, 3, j % 2 ? "#e0b23a" : COLORS.yellow);
+      break;
+    }
+    case "ROOFTOP_LOUNGE": {
+      // string lights
+      for (let px = r.x + 2; px < r.x + r.w - 2; px += 2) {
+        const sag = Math.round(Math.sin(((px - r.x) / r.w) * Math.PI) * 4);
+        rect(ctx, px, r.y + 8 + sag, 1, 1, "#3a3450");
+        if ((px - r.x) % 8 === 0) glow(ctx, ectx, px, r.y + 9 + sag, 1, 1, [COLORS.yellow, COLORS.pink, COLORS.cyan][((px - r.x) / 8) % 3]);
+      }
+      // plants
+      for (const px of [r.x + 4, r.x + r.w - 9]) {
+        rect(ctx, px, base - 5, 5, 5, "#5a3a2a");
+        rect(ctx, px - 1, base - 11, 7, 6, "#1d7a3e");
+        rect(ctx, px + 1, base - 14, 3, 3, "#2a9a50");
+      }
+      // couch + bar counter
+      rect(ctx, r.x + 12, base - 9, 22, 4, "#2b5b9a");
+      rect(ctx, r.x + 12, base - 5, 22, 3, "#3a72b8");
+      rect(ctx, r.x + 40, base - 10, 16, 2, "#5a4a6a");
+      rect(ctx, r.x + 42, base - 8, 1, 8, "#3a3048");
+      rect(ctx, r.x + 53, base - 8, 1, 8, "#3a3048");
+      glow(ctx, ectx, r.x + 44, base - 13, 1, 3, COLORS.pink);
+      glow(ctx, ectx, r.x + 48, base - 12, 1, 2, COLORS.cyan);
+      break;
+    }
+    case "TRADING_DESK": {
+      // ticker wall
+      rect(ctx, r.x + 4, r.y + 9, r.w - 8, 12, "#07080e");
+      const rng = mulberry32(r.x + 77);
+      let y = r.y + 15;
+      for (let px = r.x + 5; px < r.x + r.w - 5; px++) {
+        y = Math.max(r.y + 10, Math.min(r.y + 19, y + (rng() < 0.5 ? -1 : 1)));
+        glow(ctx, ectx, px, y, 1, 1, px % 9 < 5 ? COLORS.green : COLORS.red);
+      }
+      def.spots.filter((s) => s.kind === "desk").forEach((s) => drawDesk(ctx, ectx, at(s), base, COLORS.green));
+      break;
+    }
     default: {
       def.spots.filter((s) => s.kind === "desk").forEach((s) => drawDesk(ctx, ectx, at(s), base, def.color));
     }
