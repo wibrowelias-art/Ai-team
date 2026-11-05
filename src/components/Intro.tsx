@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { THEMES, type ThemeId } from "@/game/constants";
 import { useGame } from "@/game/store";
+import { play } from "@/lib/sound";
+import { T } from "@/ui/tokens";
 
 export default function Intro() {
   const startGame = useGame((s) => s.startGame);
@@ -11,25 +13,24 @@ export default function Intro() {
   const trim = THEMES[theme].trim;
 
   return (
-    <main className="relative flex h-full items-center justify-center overflow-y-auto bg-ink px-4 py-8" data-testid="intro" data-intro>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(155,92,255,0.18),transparent_60%)]" />
+    <main className="relative flex h-full items-center justify-center overflow-y-auto bg-bg px-4 py-8" data-testid="intro" data-intro>
+      <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse at top, color-mix(in srgb, ${trim} 16%, transparent), transparent 60%)` }} />
       <div className="scanlines absolute inset-0" />
       <form
-        className="relative w-full max-w-sm rounded-lg border-2 bg-panel/95 p-6"
-        style={{ borderColor: trim, boxShadow: `0 0 32px -8px ${trim}` }}
+        className="panel-surface relative w-full max-w-sm animate-pop rounded-panel p-6"
+        style={{ ["--accent" as string]: trim }}
         onSubmit={(e) => {
           e.preventDefault();
+          play("levelup");
           startGame(name, theme);
         }}
       >
-        <h1 className="animate-flicker text-center font-arcade text-2xl leading-relaxed neon-text" style={{ color: trim }}>
+        <h1 className="animate-flicker text-center font-arcade text-xl leading-relaxed neon-text" style={{ color: trim }}>
           NEON HQ
         </h1>
-        <p className="mt-3 text-center font-pixel text-lg leading-snug text-white/75">
-          You just leased a neon warehouse and hired seven AI workers. Pay them, boss them around, and build an empire.
-        </p>
+        <p className="mt-3 text-center text-md text-ink2">You just leased a neon warehouse and hired seven AI workers. Pay them, boss them around, and build an empire.</p>
 
-        <label className="mt-6 block font-pixel text-base tracking-wider text-[#8a84b8] uppercase" htmlFor="company">
+        <label className="mt-6 block font-pixel text-sm tracking-[0.2em] text-ink2 uppercase" htmlFor="company">
           Company name
         </label>
         <input
@@ -40,11 +41,11 @@ export default function Intro() {
           onChange={(e) => setName(e.target.value)}
           placeholder="NEON HQ"
           autoComplete="off"
-          className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 font-pixel text-xl text-white uppercase outline-none focus:border-cyan"
+          className="mt-2 h-12 w-full rounded-button border border-line bg-raised px-3 font-pixel text-xl text-ink uppercase outline-none focus:border-cyan"
         />
 
         <fieldset className="mt-5">
-          <legend className="font-pixel text-base tracking-wider text-[#8a84b8] uppercase">Building color</legend>
+          <legend className="font-pixel text-sm tracking-[0.2em] text-ink2 uppercase">Building color</legend>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {(Object.keys(THEMES) as ThemeId[]).map((id) => {
               const t = THEMES[id];
@@ -54,14 +55,18 @@ export default function Intro() {
                   key={id}
                   type="button"
                   data-testid={`theme-${id}`}
-                  onClick={() => setTheme(id)}
+                  onClick={() => {
+                    play("click");
+                    setTheme(id);
+                  }}
                   aria-pressed={active}
-                  className="rounded border-2 py-3 font-pixel text-lg uppercase"
+                  className="pressable h-12 rounded-button border font-pixel text-lg uppercase"
                   style={{
-                    borderColor: active ? t.trim : "rgba(255,255,255,0.12)",
-                    color: active ? "#ffffff" : t.trim,
+                    borderColor: active ? t.trim : T.border,
+                    color: active ? T.text : t.trim,
+                    background: active ? `color-mix(in srgb, ${t.trim} 28%, ${T.raised})` : T.raised,
                     boxShadow: active ? `0 0 14px -2px ${t.trim}` : undefined,
-                    background: active ? t.trimDark : "transparent",
+                    ["--glow" as string]: t.trim,
                   }}
                 >
                   {t.label}
@@ -71,15 +76,9 @@ export default function Intro() {
           </div>
         </fieldset>
 
-        <button
-          type="submit"
-          data-testid="start-game"
-          className="mt-6 w-full rounded py-3 font-arcade text-xs tracking-wider text-ink uppercase"
-          style={{ background: trim, boxShadow: `0 0 20px -2px ${trim}` }}
-        >
+        <button type="submit" data-testid="start-game" className="pressable mt-6 h-12 w-full rounded-button font-arcade text-xs tracking-wider text-bg uppercase" style={{ background: trim, boxShadow: `0 0 20px -2px ${trim}`, ["--glow" as string]: trim }}>
           Open the doors
         </button>
-        <p className="mt-4 text-center text-[11px] text-white/40">NEON HQ is a game. All money and workers are fictional.</p>
       </form>
     </main>
   );

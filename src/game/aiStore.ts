@@ -7,10 +7,12 @@
 import { askAi } from "@/lib/aiClient";
 import {
   addPlayerMessage,
+  addSystemMessage,
   answerRaise as answerRaiseFn,
-  applyChatReply,
+  applyChatMeta,
   applyInitiated,
   briefOf,
+  pushWorkerLine,
   companyOf,
   finishMeeting,
   gatherMeeting,
@@ -36,7 +38,7 @@ const set = useGame.setState;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Replies never arrive faster than this, so it feels like typing. */
-const MIN_TYPING_MS = 700;
+const MIN_TYPING_MS = 1000;
 
 function commit(game: GameState): void {
   set({ game });
@@ -51,7 +53,10 @@ export async function sendChat(workerId: string, text: string): Promise<void> {
   const worker = g0.workers.find((w) => w.id === workerId);
   if (!worker) return;
 
-  const history = (g0.chats[workerId] ?? []).slice(-20).map((m) => ({ from: m.from, text: m.text }));
+  const history = (g0.chats[workerId] ?? [])
+    .filter((m) => m.from !== "system")
+    .slice(-20)
+    .map((m) => ({ from: m.from as "player" | "worker", text: m.text }));
   commit(addPlayerMessage(g0, workerId, message));
   set({ chatPending: { ...get().chatPending, [workerId]: true } });
 
@@ -70,16 +75,31 @@ export async function sendChat(workerId: string, text: string): Promise<void> {
   const result: ChatResult = ai?.data ?? scriptedChat(briefOf(current), current.memories, message);
   // Belt and braces: catch obvious facts even if the model forgot to save them.
   if (!result.newMemory) result.newMemory = extractMemory(message);
+  const source = ai ? "ai" : "script";
 
-  const wait = MIN_TYPING_MS - (Date.now() - started);
-  if (wait > 0) await sleep(wait);
-
+  // Replies land 1-3 s after sending; longer replies arrive as separate bubbles.
+  const lines = result.reply.split("\n").filter(Boolean).slice(0, 3);
+  const firstWait = Math.max(MIN_TYPING_MS, Math.min(3000, 500 + lines[0].length * 25)) - (Date.now() - started);
+  if (firstWait > 0) await sleep(firstWait);
+  for (let i = 0; i < lines.length; i++) {
+    if (i > 0) await sleep(Math.min(1400, 350 + lines[i].length * 18));
+    const g = get().game;
+    if (!g) return;
+    commit(pushWorkerLine(g, workerId, lines[i], source));
+  }
   const g1 = get().game;
   if (!g1) return;
-  const out = applyChatReply(g1, workerId, result, ai ? "ai" : "script");
+  const out = applyChatMeta(g1, workerId, result);
   commit(out.state);
   set({ chatPending: { ...get().chatPending, [workerId]: false } });
-  if (out.note) get().toast(out.note, "info");
+}
+
+/** Chat quick action: a $100 bonus with a system chip in the thread. */
+export function chatBonus(workerId: string, amount: number): void {
+  const st = get();
+  if (!st.payBonus(workerId, amount)) return;
+  const g = get().game;
+  if (g) commit(addSystemMessage(g, workerId, `You paid a $${amount} bonus`));
 }
 
 export function answerRaise(workerId: string, messageId: string, approve: boolean): void {

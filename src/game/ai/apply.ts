@@ -57,6 +57,13 @@ function push(s: GameState, workerId: string, msg: Omit<ChatMessage, "id" | "t">
   return full;
 }
 
+/** Small system line in a chat ("Luke moved to the Factory"). */
+export function addSystemMessage(state: GameState, workerId: string, text: string): GameState {
+  const s = { ...state, chats: { ...state.chats } };
+  push(s, workerId, { from: "system", text });
+  return s;
+}
+
 export function addPlayerMessage(state: GameState, workerId: string, text: string): GameState {
   const s = { ...state, chats: { ...state.chats } };
   push(s, workerId, { from: "player", text });
@@ -129,6 +136,30 @@ export function applyWorkerAction(state: GameState, workerId: string, action: Ai
       return { state: s, note: `${w.name} quit.` };
     }
   }
+}
+
+/** One worker bubble. */
+export function pushWorkerLine(state: GameState, workerId: string, text: string, source: "ai" | "script"): GameState {
+  if (!state.workers.some((x) => x.id === workerId)) return state;
+  const s = { ...state, chats: { ...state.chats } };
+  push(s, workerId, { from: "worker", text, source });
+  return s;
+}
+
+/** Memory, mood and action from a reply, without the message bubbles (see pushWorkerLine). */
+export function applyChatMeta(
+  state: GameState,
+  workerId: string,
+  reply: { action: AiAction | null; newMemory: string | null; moodDelta: number },
+  rng: Rng = Math.random,
+): ApplyOutcome {
+  if (!state.workers.some((x) => x.id === workerId)) return { state, note: null };
+  const s = draftOf(state);
+  const w = s.workers.find((x) => x.id === workerId)!;
+  if (reply.newMemory) w.memories = addMemory(w.memories, reply.newMemory);
+  w.mood = clamp(w.mood + clamp(reply.moodDelta, -10, 10));
+  const out = applyWorkerAction(s, workerId, reply.action, rng);
+  return out.note && out.state !== s ? { state: addSystemMessage(out.state, workerId, out.note), note: out.note } : out;
 }
 
 /** Book a worker's chat reply: messages, memory, mood and action. */

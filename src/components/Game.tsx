@@ -9,10 +9,10 @@ import Intro from "./Intro";
 /** Shown to returning players while their save loads. */
 function Splash({ force = false }: { force?: boolean }) {
   return (
-    <main data-splash className="h-full items-center justify-center bg-ink" style={force ? { display: "flex" } : undefined} aria-busy="true">
+    <main data-splash className="h-full items-center justify-center bg-bg" style={force ? { display: "flex" } : undefined} aria-busy="true">
       <div className="text-center">
         <h1 className="animate-flicker font-arcade text-2xl leading-relaxed text-pink neon-text">NEON HQ</h1>
-        <p className="mt-3 font-pixel text-lg text-white/60">Unlocking the warehouse…</p>
+        <p className="mt-3 font-pixel text-lg text-ink2">Unlocking the warehouse…</p>
       </div>
     </main>
   );

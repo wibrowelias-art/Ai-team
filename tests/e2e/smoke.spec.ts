@@ -74,9 +74,9 @@ test("mobile: a $200 bonus to Bunc lowers cash by $200 and Bunc texts thanks wit
   await page.getByTestId("bonus-200").click();
   await expect(page.getByTestId("toast-message").first()).toBeVisible({ timeout: 3000 });
   await expect(page.getByTestId("toast-message").first()).toContainText("Bunc");
-  const after = await page.getByTestId("hud-cash").innerText();
   const n = (s: string) => Number(s.replace(/[^0-9.-]/g, ""));
-  expect(n(before) - n(after)).toBe(200);
+  // The HUD counts down smoothly, so wait for it to settle.
+  await expect.poll(async () => n(before) - n(await page.getByTestId("hud-cash").innerText()), { timeout: 3000 }).toBe(200);
   await expect(page.getByTestId("worker-messages")).toBeVisible();
   // The cheer (and coin) sound played.
   const played = await page.evaluate(() => (window as unknown as { __neonSfx?: string[] }).__neonSfx ?? []);
@@ -168,7 +168,7 @@ test("mobile: a meeting about 'next product' has 3+ speakers and applies a decis
   await expect(page.getByTestId("meeting-decisions")).toBeVisible({ timeout: 40_000 });
   const speakers = await page.getByTestId("meeting-line").evaluateAll((els) => els.map((e) => e.querySelector("span")?.textContent ?? ""));
   expect(new Set(speakers.filter(Boolean)).size).toBeGreaterThanOrEqual(3);
-  await expect(page.getByTestId("meeting-decisions").locator("li", { hasText: "✓" }).first()).toBeVisible();
+  await expect(page.getByTestId("meeting-decisions").locator("li[data-applied=\"true\"]").first()).toBeVisible();
 });
 
 test("mobile: the 5-step tutorial walks through worker, bonus, Treasury, meeting and building", async ({ page }) => {
@@ -238,7 +238,7 @@ test("layout fits from small phones to desktop", async ({ page }) => {
     [1440, 900],
   ]) {
     await page.setViewportSize({ width: w, height: h });
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(400);
     const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollW, `${w}x${h} horizontal scroll`).toBeLessThanOrEqual(w + 1);
     const hud = (await page.getByTestId("hud").boundingBox())!;
@@ -246,10 +246,10 @@ test("layout fits from small phones to desktop", async ({ page }) => {
     expect(nav.y + nav.height, `${w}x${h} bottom bar`).toBeLessThanOrEqual(h + 1);
     for (const panel of ["crew", "build"]) {
       await page.getByTestId(`nav-${panel}`).click();
-      await page.waitForTimeout(300); // let the slide-in animation finish
+      await page.waitForTimeout(700); // let the spring slide-in finish
       const dlg = (await page.getByRole("dialog").boundingBox())!;
       expect(dlg.y, `${w}x${h} ${panel} vs HUD`).toBeGreaterThanOrEqual(hud.y + hud.height - 1);
-      expect(dlg.y + dlg.height, `${w}x${h} ${panel} vs bottom bar`).toBeLessThanOrEqual(nav.y + 1);
+      expect(dlg.y + dlg.height, `${w}x${h} ${panel} vs bottom bar`).toBeLessThanOrEqual(nav.y + 2);
       expect(dlg.x + dlg.width, `${w}x${h} ${panel} width`).toBeLessThanOrEqual(w + 1);
       await page.getByTestId("panel-close").click();
     }

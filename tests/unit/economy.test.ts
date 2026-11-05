@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as A from "@/game/actions";
 import { FOCUS_ROOM } from "@/game/business";
-import { COMPUTE_PER_WORKER, CYCLES_PER_DAY, RENT_PER_FLOOR, START_MINUTE } from "@/game/constants";
+import { COMPUTE_PER_WORKER, CYCLES_PER_DAY, START_MINUTE } from "@/game/constants";
 import { draftOf } from "@/game/draft";
 import { budgetFactor, demandFactor, fairSalary, productUnits, rentFor, runCycle, runDay, workerOutput } from "@/game/economy";
 import { resolveEvent, triggerEvent } from "@/game/events";

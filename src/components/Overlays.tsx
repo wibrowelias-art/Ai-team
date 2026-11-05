@@ -2,26 +2,33 @@
 
 import { useEffect, useRef } from "react";
 import { floorBase } from "@/game/building";
-import { COLORS } from "@/game/constants";
 import { useGame } from "@/game/store";
 import { formatDuration, formatMoney } from "@/game/time";
+import type { GameEvent } from "@/game/types";
+import { Icon, type IconName } from "@/ui/icons";
+import { T } from "@/ui/tokens";
 import Portrait from "./Portrait";
+import { Button } from "./ui";
 import { usePolledGame } from "./usePolled";
 
 function Modal({ children, accent, testId, label }: { children: React.ReactNode; accent: string; testId: string; label: string }) {
   return (
     <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-4 animate-fade" data-testid={testId}>
-      <section
-        role="alertdialog"
-        aria-label={label}
-        className="scroll-thin max-h-full w-full max-w-sm overflow-y-auto rounded-lg border-2 bg-panel/95 p-4"
-        style={{ borderColor: accent, boxShadow: `0 0 28px -6px ${accent}` }}
-      >
+      <section role="alertdialog" aria-label={label} className="panel-surface scroll-thin max-h-full w-full max-w-sm animate-pop overflow-y-auto rounded-panel p-4" style={{ ["--accent" as string]: accent }}>
         {children}
       </section>
     </div>
   );
 }
+
+const EVENT_STYLE: Record<GameEvent["kind"], { icon: IconName; color: string }> = {
+  viral: { icon: "star", color: T.pink },
+  refund: { icon: "warn", color: T.orange },
+  investor: { icon: "briefcase", color: T.green },
+  poaching: { icon: "hire", color: T.purple },
+  outage: { icon: "bolt", color: T.red },
+  drama: { icon: "crew", color: T.yellow },
+};
 
 /** Popup for the oldest unanswered event. */
 export function EventModal() {
@@ -29,25 +36,33 @@ export function EventModal() {
   const away = useGame((s) => s.away);
   const resolve = useGame((s) => s.resolveEvent);
   if (!ev || away) return null;
+  const st = EVENT_STYLE[ev.kind];
+  const title = ev.title.replace(/[^\w\s'!?-]/gu, "").trim();
   return (
-    <Modal accent={COLORS.yellow} testId="event-modal" label={ev.title}>
-      <h2 className="font-arcade text-[12px] leading-relaxed text-hud neon-text">{ev.title}</h2>
-      <p className="mt-2 text-sm text-white/85">{ev.body}</p>
-      <div className="mt-4 flex flex-col gap-2">
+    <Modal accent={st.color} testId="event-modal" label={title}>
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-button" style={{ background: `color-mix(in srgb, ${st.color} 18%, transparent)`, color: st.color }}>
+          <Icon name={st.icon} size={20} />
+        </span>
+        <div>
+          <div className="font-pixel text-xs tracking-[0.2em] text-ink2 uppercase">Event</div>
+          <h2 className="font-arcade text-xs leading-relaxed neon-text" style={{ color: st.color }}>
+            {title}
+          </h2>
+        </div>
+      </div>
+      <p className="mt-3 text-md text-ink">{ev.body}</p>
+      <div className="stagger mt-4 flex flex-col gap-2">
         {ev.choices.map((c, i) => (
-          <button
-            key={c.label}
-            type="button"
-            onClick={() => resolve(ev.id, i)}
-            className="rounded border border-white/15 bg-black/30 p-2 text-left hover:border-hud/60"
-            data-testid={`event-choice-${i}`}
-          >
-            <div className="font-pixel text-lg leading-tight text-white">{c.label}</div>
-            <div className="text-[11px] text-white/55">{c.detail}</div>
+          <button key={c.label} type="button" onClick={() => resolve(ev.id, i)} className="pressable rounded-button border border-line bg-raised p-3 text-left hover:border-ink2/50" style={{ ["--glow" as string]: st.color }} data-testid={`event-choice-${i}`}>
+            <div className="font-pixel text-lg leading-tight text-ink">{c.label}</div>
+            <div className="text-sm text-ink2">{c.detail}</div>
           </button>
         ))}
       </div>
-      <p className="mt-3 text-[10px] text-white/35">No answer in 12 game hours picks “{ev.choices[ev.defaultChoice].label}”.</p>
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+        <Icon name="clock" size={10} /> No answer in 12 game hours picks “{ev.choices[ev.defaultChoice].label}”.
+      </p>
     </Modal>
   );
 }
@@ -59,57 +74,53 @@ export function AwayModal() {
   const delta = away.cashAfter - away.cashBefore;
   const realMin = Math.round(away.realMs / 60000);
   return (
-    <Modal accent={COLORS.cyan} testId="away-modal" label="While you were away">
-      <h2 className="font-arcade text-[12px] leading-relaxed text-cyan neon-text">While you were away</h2>
-      <p className="mt-2 text-xs text-white/60">
+    <Modal accent={T.cyan} testId="away-modal" label="While you were away">
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-button bg-cyan/15 text-cyan">
+          <Icon name="moon" size={20} />
+        </span>
+        <h2 className="font-arcade text-xs leading-relaxed text-cyan neon-text">While you were away</h2>
+      </div>
+      <p className="mt-3 text-sm text-ink2">
         You were gone {realMin >= 60 ? formatDuration(realMin) : `${realMin} min`}. The crew kept working for {formatDuration(away.gameMinutes)} of game time
         {away.capped ? " (offline progress is capped at 3 game days)" : ""}.
       </p>
-      <dl className="mt-3 grid grid-cols-2 gap-2 font-pixel">
-        <div className="rounded bg-black/30 p-2">
-          <dt className="text-[13px] text-white/50 uppercase">Revenue</dt>
-          <dd className="text-xl text-neon-green" data-testid="away-revenue">
-            +{formatMoney(away.revenue)}
-          </dd>
-        </div>
-        <div className="rounded bg-black/30 p-2">
-          <dt className="text-[13px] text-white/50 uppercase">Spent</dt>
-          <dd className="text-xl text-danger">-{formatMoney(away.spent)}</dd>
-        </div>
-        {away.otherIncome !== 0 && (
-          <div className="rounded bg-black/30 p-2">
-            <dt className="text-[13px] text-white/50 uppercase">Other income</dt>
-            <dd className="text-xl text-white">+{formatMoney(away.otherIncome)}</dd>
-          </div>
-        )}
-        <div className="rounded bg-black/30 p-2">
-          <dt className="text-[13px] text-white/50 uppercase">Cash</dt>
-          <dd className={`text-xl ${delta >= 0 ? "text-hud" : "text-danger"}`} data-testid="away-cash">
-            {delta >= 0 ? "+" : ""}
-            {formatMoney(delta)}
-          </dd>
-        </div>
+      <dl className="stagger mt-3 grid grid-cols-2 gap-3">
+        <Tile label="Revenue" value={`+${formatMoney(away.revenue)}`} color={T.green} testId="away-revenue" />
+        <Tile label="Spent" value={`-${formatMoney(away.spent)}`} color={T.red} />
+        {away.otherIncome !== 0 && <Tile label="Other income" value={`+${formatMoney(away.otherIncome)}`} color={T.text} />}
+        <Tile label="Cash" value={`${delta >= 0 ? "+" : ""}${formatMoney(delta)}`} color={delta >= 0 ? T.yellow : T.red} testId="away-cash" />
       </dl>
-      <ul className="mt-3 flex flex-col gap-1 text-xs text-white/75">
+      <ul className="mt-3 flex flex-col gap-1 text-sm text-ink">
         <li>
-          {formatMoney(away.cashBefore)} → <span className="text-hud">{formatMoney(away.cashAfter)}</span>
+          {formatMoney(away.cashBefore)} → <span className="text-yellow">{formatMoney(away.cashAfter)}</span>
         </li>
-        {away.daysPassed > 0 && <li>📅 {away.daysPassed} payday{away.daysPassed > 1 ? "s" : ""} passed</li>}
-        {away.productsLaunched > 0 && <li>🏭 {away.productsLaunched} products went live (auto-approved)</li>}
+        {away.daysPassed > 0 && <li>{away.daysPassed} payday{away.daysPassed > 1 ? "s" : ""} passed</li>}
+        {away.productsLaunched > 0 && <li>{away.productsLaunched} products went live (auto-approved)</li>}
         {away.events.map((e, i) => (
-          <li key={i}>⚡ {e} (handled with the default choice)</li>
+          <li key={i} className="text-ink2">
+            {e} (handled with the default choice)
+          </li>
         ))}
-        {away.leftCrew.length > 0 && <li className="text-danger">👋 {away.leftCrew.join(", ")} left the company</li>}
+        {away.leftCrew.length > 0 && <li className="text-red">{away.leftCrew.join(", ")} left the company</li>}
       </ul>
-      <button
-        type="button"
-        onClick={dismiss}
-        className="mt-4 w-full rounded bg-cyan py-2.5 font-arcade text-[10px] text-ink uppercase"
-        data-testid="away-continue"
-      >
-        Back to work
-      </button>
+      <div className="mt-4">
+        <Button variant="primary" onClick={dismiss} testId="away-continue" full>
+          Back to work
+        </Button>
+      </div>
     </Modal>
+  );
+}
+
+function Tile({ label, value, color, testId }: { label: string; value: string; color: string; testId?: string }) {
+  return (
+    <div className="rounded-button border border-line bg-raised p-3">
+      <dt className="font-pixel text-sm tracking-widest text-ink2 uppercase">{label}</dt>
+      <dd className="font-pixel text-xl" style={{ color }} data-testid={testId}>
+        {value}
+      </dd>
+    </div>
   );
 }
 
@@ -167,13 +178,10 @@ export function Toasts() {
   }, []);
 
   return (
-    <div
-      className={`pointer-events-none absolute inset-x-0 ${tutorialOn ? "top-[7.5rem]" : "top-12"} z-30 flex flex-col items-center gap-1.5 px-3`}
-      aria-live="polite"
-      data-testid="toasts"
-    >
+    <div className={`pointer-events-none absolute inset-x-0 ${tutorialOn ? "top-[8.5rem]" : "top-14"} z-30 flex flex-col items-center gap-2 px-3 md:items-end md:pr-4`} aria-live="polite" data-testid="toasts">
       {toasts.map((t) => {
         const w = t.workerId ? game?.workers.find((x) => x.id === t.workerId) : undefined;
+        const error = t.kind === "error";
         return (
           <button
             type="button"
@@ -185,16 +193,15 @@ export function Toasts() {
                 focusOn(w.x, floorBase(w.floor) - 8);
               }
             }}
-            className={`pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs shadow-lg animate-fade ${
-              t.kind === "error" ? "border-danger/60 bg-[#2a0f18]/95 text-danger" : "border-cyan/40 bg-panel/95 text-white"
-            }`}
+            className="panel-surface pointer-events-auto flex w-full max-w-sm animate-pop items-center gap-3 rounded-button px-3 py-2.5 text-left text-sm"
+            style={{ ["--accent" as string]: error ? T.red : T.cyan, color: error ? T.red : T.text }}
             data-testid={t.kind === "message" ? "toast-message" : "toast"}
           >
-            {w && <Portrait look={w.look} scale={1.5} />}
+            {w ? <Portrait look={w.look} scale={1.5} /> : <Icon name={error ? "warn" : "bolt"} size={14} color={error ? T.red : T.cyan} />}
             <span className="min-w-0">
-              {w && <span className="mr-1 font-pixel text-[15px] text-cyan">{w.name}:</span>}
+              {w && <span className="mr-1 font-pixel text-md text-cyan">{w.name}:</span>}
               {t.text}
-              {t.count && t.count > 1 ? <span className="ml-1 text-white/50">· {t.count} new</span> : null}
+              {t.count && t.count > 1 ? <span className="ml-1 text-ink2">· {t.count} new</span> : null}
             </span>
           </button>
         );

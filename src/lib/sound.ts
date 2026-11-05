@@ -4,7 +4,7 @@
  * Tiny chiptune sound engine on the Web Audio API. Everything is synthesized,
  * so there are no audio files to download. Audio starts after the first user gesture.
  */
-export type Sfx = "coin" | "notify" | "ding" | "door" | "cheer" | "build" | "alert" | "error" | "click";
+export type Sfx = "coin" | "register" | "notify" | "ding" | "door" | "cheer" | "build" | "alert" | "error" | "click" | "open" | "levelup";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -12,10 +12,14 @@ let musicGain: GainNode | null = null;
 let ambient: { stop: () => void } | null = null;
 let enabled = true;
 let unlocked = false;
+let sfxVol = 0.8;
+let musicVol = 0.5;
 const lastPlayed = new Map<Sfx, number>();
 
 /** Minimum gap between two plays of the same sound, so busy moments don't turn into noise. */
-const THROTTLE_MS: Partial<Record<Sfx, number>> = { ding: 1200, door: 1500, notify: 600, coin: 120, click: 60 };
+const THROTTLE_MS: Partial<Record<Sfx, number>> = { ding: 1200, door: 1500, notify: 600, coin: 90, click: 50, open: 150, register: 300 };
+/** Ambient pad level at full music volume. */
+const PAD_LEVEL = 0.07;
 
 function ensure(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -39,15 +43,25 @@ export function unlockAudio(): void {
   if (!c) return;
   if (c.state === "suspended") void c.resume();
   unlocked = true;
-  if (enabled) startAmbient();
+  if (enabled && musicVol > 0) startAmbient();
 }
 
 export function setSoundEnabled(on: boolean): void {
   enabled = on;
   if (!ctx || !master) return;
   master.gain.setTargetAtTime(on ? 0.5 : 0, ctx.currentTime, 0.05);
-  if (on && unlocked) startAmbient();
-  if (!on) stopAmbient();
+  if (on && unlocked && musicVol > 0) startAmbient();
+  if (!on || musicVol <= 0) stopAmbient();
+}
+
+/** Separate music and effects volumes (0..1). */
+export function setVolumes(music: number, sfx: number): void {
+  musicVol = Math.max(0, Math.min(1, music));
+  sfxVol = Math.max(0, Math.min(1, sfx));
+  if (!ctx || !musicGain) return;
+  if (enabled && unlocked && musicVol > 0) startAmbient();
+  if (musicVol <= 0) stopAmbient();
+  else if (ambient) musicGain.gain.setTargetAtTime(PAD_LEVEL * musicVol, ctx.currentTime, 0.2);
 }
 
 function tone(freq: number, start: number, dur: number, type: OscillatorType, vol: number, slideTo?: number): void {
@@ -58,7 +72,7 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType, vo
   osc.frequency.setValueAtTime(freq, start);
   if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, start + dur);
   g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(vol, start + 0.008);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, vol * sfxVol), start + 0.008);
   g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
   osc.connect(g).connect(master);
   osc.start(start);
@@ -77,13 +91,13 @@ function noise(start: number, dur: number, vol: number, cutoff: number): void {
   filter.type = "lowpass";
   filter.frequency.value = cutoff;
   const g = ctx.createGain();
-  g.gain.value = vol;
+  g.gain.value = vol * sfxVol;
   src.connect(filter).connect(g).connect(master);
   src.start(start);
 }
 
 export function play(sfx: Sfx): void {
-  if (!enabled || !unlocked) return;
+  if (!enabled || !unlocked || sfxVol <= 0) return;
   const c = ensure();
   if (!c || c.state !== "running") return;
   const now = performance.now();
@@ -132,6 +146,18 @@ export function play(sfx: Sfx): void {
     case "click":
       tone(1800, t, 0.025, "square", 0.04);
       break;
+    case "open":
+      tone(520, t, 0.05, "triangle", 0.06, 780);
+      break;
+    case "register":
+      noise(t, 0.05, 0.2, 3000);
+      tone(1760, t + 0.04, 0.12, "square", 0.08);
+      tone(2217, t + 0.1, 0.25, "square", 0.08);
+      break;
+    case "levelup":
+      [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.08, 0.3, "triangle", 0.1));
+      tone(1568, t + 0.45, 0.6, "sine", 0.08);
+      break;
   }
 }
 
@@ -162,7 +188,7 @@ function startAmbient(): void {
     }),
   );
   lfo.start();
-  out.gain.setTargetAtTime(0.035, c.currentTime, 2);
+  out.gain.setTargetAtTime(PAD_LEVEL * musicVol, c.currentTime, 2);
   ambient = {
     stop: () => {
       out.gain.setTargetAtTime(0, c.currentTime, 0.3);

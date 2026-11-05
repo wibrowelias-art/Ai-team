@@ -56,16 +56,16 @@ export default function BarChart({ data, series, title }: { data: BarDatum[]; se
   return (
     <figure className="m-0">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <figcaption className="font-pixel text-[13px] tracking-widest text-[#8a84b8] uppercase">{title}</figcaption>
+        <figcaption className="font-pixel text-sm tracking-widest text-ink2 uppercase">{title}</figcaption>
         <div className="flex items-center gap-3">
           {series.length > 1 &&
             series.map((s) => (
-              <span key={s.key} className="flex items-center gap-1 text-[11px] text-white/70">
+              <span key={s.key} className="flex items-center gap-1 text-xs text-ink2">
                 <span className="inline-block h-2 w-2 rounded-sm" style={{ background: s.color }} />
                 {s.label}
               </span>
             ))}
-          <button type="button" onClick={() => setTable(!table)} className="text-[11px] text-cyan underline-offset-2 hover:underline">
+          <button type="button" onClick={() => setTable(!table)} className="pressable flex h-11 items-center px-2 text-sm text-cyan">
             {table ? "Chart" : "Table"}
           </button>
         </div>
@@ -73,9 +73,9 @@ export default function BarChart({ data, series, title }: { data: BarDatum[]; se
 
       {table ? (
         <div className="scroll-thin max-h-48 overflow-y-auto">
-          <table className="w-full font-pixel text-[14px]">
+          <table className="w-full font-pixel text-sm">
             <thead>
-              <tr className="text-white/50">
+              <tr className="text-ink2">
                 <th className="text-left font-normal">Day</th>
                 {series.map((s) => (
                   <th key={s.key} className="text-right font-normal">
@@ -87,9 +87,9 @@ export default function BarChart({ data, series, title }: { data: BarDatum[]; se
             <tbody>
               {[...data].reverse().map((d) => (
                 <tr key={d.label} className="border-t border-white/5">
-                  <td className="text-white/70">{d.label}</td>
+                  <td className="text-ink2">{d.label}</td>
                   {series.map((s) => (
-                    <td key={s.key} className="text-right text-white/90">
+                    <td key={s.key} className="text-right text-ink">
                       {formatMoney(d.values[s.key] ?? 0)}
                     </td>
                   ))}
@@ -138,15 +138,15 @@ export default function BarChart({ data, series, title }: { data: BarDatum[]; se
           </svg>
           {hovered && hover !== null && (
             <div
-              className="pointer-events-none absolute top-0 rounded border border-white/15 bg-ink/95 px-2 py-1 text-[11px] whitespace-nowrap shadow-lg"
+              className="pointer-events-none absolute top-0 rounded border border-line bg-bg/95 px-2 py-1 text-[11px] whitespace-nowrap shadow-lg"
               style={{
                 left: `${((PAD.l + hover * slot + slot / 2) / W) * 100}%`,
                 transform: `translateX(${hover > data.length / 2 ? "-105%" : "5%"})`,
               }}
             >
-              <div className="font-pixel text-[13px] text-white/60">{hovered.label}</div>
+              <div className="font-pixel text-sm text-ink2">{hovered.label}</div>
               {series.map((s) => (
-                <div key={s.key} className="flex items-center gap-1.5 text-white/90">
+                <div key={s.key} className="flex items-center gap-1.5 text-ink">
                   <span className="inline-block h-2 w-2 rounded-sm" style={{ background: s.color }} />
                   {s.label} <span className="ml-auto pl-2">{formatMoney(hovered.values[s.key] ?? 0)}</span>
                 </div>

@@ -7,7 +7,7 @@ import { starterProducts } from "./products";
 import { dayOf } from "./time";
 import type { Focus, GameState, Settings, Worker } from "./types";
 
-const DEFAULT_SETTINGS: Settings = { speed: 1, sound: true, scanlines: true, ai: true, graphics: "auto" };
+const DEFAULT_SETTINGS: Settings = { speed: 1, sound: true, scanlines: true, ai: true, graphics: "auto", music: 0.5, sfx: 0.8 };
 
 const DB_NAME = "neon-hq";
 const STORE = "saves";

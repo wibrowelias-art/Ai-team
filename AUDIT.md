@@ -18,17 +18,17 @@ Items are ordered by impact. Ticked = fixed.
 
 ## B. Placeholder / leftover text
 
-- [ ] B1. Worker panel memories: "…they will remember it (Phase 3)."
-- [ ] B2. Server Room panel: "Server upgrades arrive in Phase 4."
-- [ ] B3. The `Soon` component (dashed "coming soon" box) still exists; remove it and every use.
-- [ ] B4. Meeting header shows "scripted" / "live" badge. It exposes the fallback. Remove.
+- [x] B1. Worker panel memories: "…they will remember it (Phase 3)."
+- [x] B2. Server Room panel: "Server upgrades arrive in Phase 4."
+- [x] B3. The `Soon` component (dashed "coming soon" box) still exists; remove it and every use.
+- [x] B4. Meeting header shows "scripted" / "live" badge. It exposes the fallback. Remove.
 - [x] B5. Log: "Viral hit!: Celebrate with the crew." (double punctuation from stripping emoji). Format event outcomes properly.
-- [ ] B6. Room name "Chill / Bar" vs sign "CHILL BAR" vs blurb. Use "Chill Bar" everywhere.
-- [ ] B7. Factory: "Lines unlocked: 👕 🎵 🎬 🕯️ 🖼️ · Research unlocks more." reads like debug output. Make it a proper row with labels.
-- [ ] B8. Treasury multiplier "X1.13" (uppercase X from the pixel font). Use "×1.13" in the sans font.
-- [ ] B9. Treasury "Budget left $167 today" is unclear. Replace with "Budgets today: $83 of $250".
-- [ ] B10. Empty states have no design: Log (fresh game), Messages ("No messages yet."), Memories, Missions ("No missions running."), Factory columns ("Empty"), Hire ("No candidates left today.").
-- [ ] B11. Greyed buttons: none left that do nothing (Build/Hire/Chat all work now), but disabled money buttons give no reason. Add a tooltip-style note ("Not enough cash").
+- [x] B6. Room name "Chill / Bar" vs sign "CHILL BAR" vs blurb. Use "Chill Bar" everywhere.
+- [x] B7. Factory: "Lines unlocked: 👕 🎵 🎬 🕯️ 🖼️ · Research unlocks more." reads like debug output. Make it a proper row with labels.
+- [x] B8. Treasury multiplier "X1.13" (uppercase X from the pixel font). Use "×1.13" in the sans font.
+- [x] B9. Treasury "Budget left $167 today" is unclear. Replace with "Budgets today: $83 of $250".
+- [x] B10. Empty states have no design: Log (fresh game), Messages ("No messages yet."), Memories, Missions ("No missions running."), Factory columns ("Empty"), Hire ("No candidates left today.").
+- [x] B11. Greyed buttons: none left that do nothing (Build/Hire/Chat all work now), but disabled money buttons give no reason. Add a tooltip-style note ("Not enough cash").
 
 ## C. Spam and noise
 
@@ -39,27 +39,27 @@ Items are ordered by impact. Ticked = fixed.
 
 ## D. Visual design
 
-- [ ] D1. No single colour token file; hex values are scattered across components, canvas code and CSS. Create `src/ui/tokens.ts` + CSS variables and use them everywhere.
-- [ ] D2. Surfaces are inconsistent: `bg-black/20`, `bg-black/30`, `bg-ink2`, `bg-panel/95` mixed. Use surface / raised / border tokens.
-- [ ] D3. Radii vary (rounded, rounded-lg, rounded-xl, rounded-full chips). Panels 12 px, buttons 10 px.
-- [ ] D4. Type sizes are ad hoc (`text-[11px]`, `[13px]`, `[14px]`, `[15px]`, `text-base`, `text-lg`, `text-xl`). Fix to 11/13/15/18/24, pixel font only for HUD, signs, tags and big numbers.
-- [ ] D5. Contrast: `text-white/40` (≈3:1) and `text-white/50` on dark surfaces fail AA for small text. Map to secondary (#a0a0c0) and muted (#6a6a88, only for 13 px+ non-essential).
-- [ ] D6. Icons are emoji (bottom bar, business tabs, factory lines). Replace with one pixel icon set drawn in code.
-- [ ] D7. Panel header: no icon, inconsistent close button (36×36). Add icon + 44 px close. Sticky action footer for panels with a primary action (Hire, Build, Meeting, Fire confirm, Chat input).
-- [ ] D8. Panel border has no inner glow or texture; add subtle inner glow + noise.
+- [x] D1. No single colour token file; hex values are scattered across components, canvas code and CSS. Create `src/ui/tokens.ts` + CSS variables and use them everywhere.
+- [x] D2. Surfaces are inconsistent: `bg-black/20`, `bg-black/30`, `bg-ink2`, `bg-panel/95` mixed. Use surface / raised / border tokens.
+- [x] D3. Radii vary (rounded, rounded-lg, rounded-xl, rounded-full chips). Panels 12 px, buttons 10 px.
+- [x] D4. Type sizes are ad hoc (`text-[11px]`, `[13px]`, `[14px]`, `[15px]`, `text-base`, `text-lg`, `text-xl`). Fix to 11/13/15/18/24, pixel font only for HUD, signs, tags and big numbers.
+- [x] D5. Contrast: `text-white/40` (≈3:1) and `text-white/50` on dark surfaces fail AA for small text. Map to secondary (#a0a0c0) and muted (#6a6a88, only for 13 px+ non-essential).
+- [x] D6. Icons are emoji (bottom bar, business tabs, factory lines). Replace with one pixel icon set drawn in code.
+- [x] D7. Panel header: no icon, inconsistent close button (36×36). Add icon + 44 px close. Sticky action footer for panels with a primary action (Hire, Build, Meeting, Fire confirm, Chat input).
+- [x] D8. Panel border has no inner glow or texture; add subtle inner glow + noise.
 - [ ] D9. Upgrades don't change a room's look (only a pip column). Add furniture per level.
 - [ ] D10. Monitors are static; add moving screen content (ticker, bars, typing glow).
-- [ ] D11. Event modal title in pixel font renders emoji badly ("Worker drama 💢"). Use a pixel icon per event kind.
+- [x] D11. Event modal title in pixel font renders emoji badly ("Worker drama 💢"). Use a pixel icon per event kind.
 
 ## E. Animation and feel
 
 - [ ] E1. Walk cycle is 4 frames; no acceleration, no blink/look-around, no stretch when tired, no high-five, no stomp.
 - [ ] E2. Elevator has no doors and no ease; pod moves linearly.
-- [ ] E3. No coin fly-in to the HUD when revenue arrives, no "+$240" floaters, HUD numbers jump instead of counting.
-- [ ] E4. Panels slide with a plain CSS ease, no spring; list items don't stagger; buttons have no press state.
+- [ ] E3. No coin fly-in to the HUD when revenue arrives, no "+$240" floaters. (HUD numbers now count smoothly.)
+- [x] E4. Panels slide with a plain CSS ease, no spring; list items don't stagger; buttons have no press state.
 - [ ] E5. No screen flash / shake on viral hit or outage, no confetti on milestones.
 - [ ] E6. `prefers-reduced-motion` only disables CSS animations, not canvas camera easing or floaters.
-- [ ] E7. No feedback sound on taps and panel opens.
+- [x] E7. No feedback sound on taps and panel opens.
 
 ## F. Gameplay feel
 
@@ -71,18 +71,18 @@ Items are ordered by impact. Ticked = fixed.
 
 ## G. Chat polish
 
-- [ ] G1. Chat has no avatars on bubbles, no timestamps, no read ticks, no system chips for actions ("Luke moved to Factory" only appears as a toast).
-- [ ] G2. Quick-reply chips are cut off at the right edge and don't match the spec set.
-- [ ] G3. Multi-line replies arrive as one block; split into bubbles with short delays.
+- [x] G1. Chat has no avatars on bubbles, no timestamps, no read ticks, no system chips for actions ("Luke moved to Factory" only appears as a toast).
+- [x] G2. Quick-reply chips are cut off at the right edge and don't match the spec set.
+- [x] G3. Multi-line replies arrive as one block; split into bubbles with short delays.
 
 ## H. Sound
 
-- [ ] H1. One master volume; no separate music / effects sliders.
-- [ ] H2. Missing effects: tap, panel open, cash register, level up.
+- [x] H1. One master volume; no separate music / effects sliders.
+- [x] H2. Missing effects: tap, panel open, cash register, level up.
 
 ## I. Mobile, accessibility, performance
 
-- [ ] I1. **Tap targets under 44 px**: speed buttons 36×32, fullscreen/mute/settings 36×32, panel close 36×36, tutorial Skip 23×17, HUD cells 65×35, intro "Open the doors" 40 px tall, "Ship" 28 px, sliders 16 px tall, chat chips 30 px.
+- [x] I1. **Tap targets under 44 px**: speed buttons 36×32, fullscreen/mute/settings 36×32, panel close 36×36, tutorial Skip 23×17, HUD cells 65×35, intro "Open the doors" 40 px tall, "Ship" 28 px, sliders 16 px tall, chat chips 30 px.
 - [ ] I2. Not yet checked at 360×780 and 412×915 (checked 360×640, 390×844, 430×932).
 - [ ] I3. Panels, chat and sound are in the main game chunk; lazy-load them.
 - [ ] I4. Lighthouse mobile performance 94 after the 2.5D world; keep ≥ 90 after polish, accessibility ≥ 95.

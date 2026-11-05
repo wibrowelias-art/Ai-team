@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { closeMeeting, meetingSay, startMeeting } from "@/game/aiStore";
-import { COLORS } from "@/game/constants";
 import { useGame } from "@/game/store";
 import type { GameState } from "@/game/types";
+import { Icon } from "@/ui/icons";
+import { T } from "@/ui/tokens";
 import Portrait from "../Portrait";
-import { NeonButton, Section } from "../ui";
+import { Button, Chip, Section } from "../ui";
 
 const TOPICS = ["next product", "marketing push", "cut costs", "team morale", "music strategy"];
 
@@ -36,23 +37,18 @@ function MeetingForm({ game }: { game: GameState }) {
           onChange={(e) => setTopic(e.target.value)}
           maxLength={100}
           placeholder="Topic, e.g. next product"
-          className="w-full rounded border border-white/15 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-danger"
+          className="h-11 w-full rounded-button border border-line bg-raised px-3 text-md text-ink outline-none focus:border-red"
           data-testid="meeting-topic"
           aria-label="Meeting topic"
         />
-        <div className="scroll-thin -mx-1 mt-2 flex gap-1 overflow-x-auto px-1 pb-1">
+        <div className="scroll-thin -mx-1 mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
           {TOPICS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTopic(t)}
-              className="shrink-0 rounded-full border border-white/15 px-2.5 py-1 text-[11px] text-white/70 hover:border-danger/60"
-            >
+            <Chip key={t} color={T.red} active={topic === t} onClick={() => setTopic(t)}>
               {t}
-            </button>
+            </Chip>
           ))}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-1.5">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           {available.map((w) => {
             const on = picked.includes(w.id);
             return (
@@ -62,28 +58,25 @@ function MeetingForm({ game }: { game: GameState }) {
                 onClick={() => toggle(w.id)}
                 aria-pressed={on}
                 data-testid={`attendee-${w.id}`}
-                className={`flex items-center gap-2 rounded border px-2 py-1 text-left ${on ? "border-danger/70 bg-danger/10" : "border-white/10 opacity-60"}`}
+                className="pressable flex min-h-11 items-center gap-2 rounded-button border px-2 text-left"
+                style={{ borderColor: on ? T.red : T.border, background: on ? `color-mix(in srgb, ${T.red} 12%, transparent)` : T.raised, opacity: on ? 1 : 0.7, ["--glow" as string]: T.red }}
               >
                 <Portrait look={w.look} scale={1.5} />
-                <span className="font-pixel text-base text-white">{w.name}</span>
+                <span className="font-pixel text-md text-ink">{w.name}</span>
+                {on && <Icon name="check" size={10} color={T.red} className="ml-auto" />}
               </button>
             );
           })}
         </div>
         <div className="mt-3">
-          <NeonButton
-            color={COLORS.red}
-            onClick={() => void startMeeting(topic, picked)}
-            disabled={!topic.trim() || picked.length < 2}
-            testId="meeting-start"
-          >
+          <Button variant="primary" color={T.red} icon="meeting" onClick={() => void startMeeting(topic, picked)} disabled={!topic.trim() || picked.length < 2} title={!topic.trim() ? "Pick a topic first" : picked.length < 2 ? "Pick at least 2 people" : undefined} testId="meeting-start" full>
             Start meeting ({picked.length})
-          </NeonButton>
+          </Button>
         </div>
       </Section>
       {last && (
         <Section title={`Last meeting · ${last.topic}`}>
-          <ul className="text-xs text-white/70">
+          <ul className="text-sm text-ink2">
             {last.decisions.map((d, i) => (
               <li key={i}>{d}</li>
             ))}
@@ -110,35 +103,40 @@ function LiveMeetingView({ game }: { game: GameState }) {
 
   return (
     <div data-testid="meeting-live">
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 className="font-pixel text-lg text-danger">“{meeting.topic}”</h3>
-        <span className="text-[10px] text-white/40">{meeting.source === "ai" ? "live" : meeting.source === "script" ? "scripted" : ""}</span>
-      </div>
-      <ul ref={listRef} className="scroll-thin mt-2 flex max-h-[34vh] flex-col gap-1.5 overflow-y-auto" data-testid="meeting-transcript">
+      <h3 className="font-pixel text-lg text-red">“{meeting.topic}”</h3>
+      <ul ref={listRef} className="scroll-thin mt-2 flex max-h-[34vh] flex-col gap-2 overflow-y-auto" data-testid="meeting-transcript">
         {visible.map((l, i) => {
           const w = byName.get(l.speaker);
+          const you = l.speaker === "You";
           return (
-            <li key={i} className={`flex items-start gap-2 ${l.speaker === "You" ? "flex-row-reverse" : ""}`} data-testid="meeting-line">
+            <li key={i} className={`animate-pop flex items-start gap-2 ${you ? "flex-row-reverse" : ""}`} data-testid="meeting-line">
               {w ? <Portrait look={w.look} scale={1.5} /> : <span className="w-[18px]" />}
-              <div className={`rounded-lg px-2.5 py-1.5 text-xs ${l.speaker === "You" ? "bg-cyan/20 text-white" : "bg-white/8 text-white/90"}`}>
-                <span className="mr-1 font-pixel text-[15px] text-danger">{l.speaker}</span>
+              <div className={`rounded-button px-3 py-2 text-sm ${you ? "bg-cyan/15 text-ink" : "bg-raised text-ink"}`}>
+                <span className="mr-1.5 font-pixel text-md" style={{ color: you ? T.cyan : T.red }}>
+                  {l.speaker}
+                </span>
                 {l.text}
               </div>
             </li>
           );
         })}
         {waiting && meeting.status === "running" && (
-          <li className="text-[11px] text-white/40">{meeting.busy ? "The crew is thinking…" : "…"}</li>
+          <li className="flex items-center gap-2 text-xs text-ink2">
+            <TypingDots /> {meeting.busy ? "the crew is thinking" : ""}
+          </li>
         )}
       </ul>
 
       {meeting.status === "done" && meeting.outcomes && (
         <Section title="Decisions">
-          <ul className="flex flex-col gap-1 text-xs" data-testid="meeting-decisions">
+          <ul className="stagger flex flex-col gap-1 text-sm" data-testid="meeting-decisions">
             {meeting.outcomes.map((o, i) => (
-              <li key={i} className={o.applied ? "text-neon-green" : "text-white/50"}>
-                {o.applied ? "✓" : "•"} {o.summary}
-                {!o.applied && o.note !== "noted" ? ` (${o.note})` : ""}
+              <li key={i} data-applied={o.applied ? "true" : "false"} className="flex items-start gap-2" style={{ color: o.applied ? T.green : T.text2 }}>
+                <Icon name={o.applied ? "check" : "clock"} size={10} className="mt-1 shrink-0" />
+                <span>
+                  {o.summary}
+                  {!o.applied && o.note !== "noted" ? ` (${o.note})` : ""}
+                </span>
               </li>
             ))}
           </ul>
@@ -161,20 +159,30 @@ function LiveMeetingView({ game }: { game: GameState }) {
             onChange={(e) => setText(e.target.value)}
             maxLength={300}
             placeholder="Say something to the room…"
-            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-danger"
+            className="h-11 min-w-0 flex-1 rounded-button border border-line bg-raised px-3 text-md text-ink outline-none focus:border-red"
             data-testid="meeting-input"
           />
-          <button type="submit" disabled={!text.trim() || meeting.busy} className="rounded-lg bg-danger/80 px-3 font-pixel text-lg text-white disabled:opacity-40">
+          <Button type="submit" variant="primary" color={T.red} disabled={!text.trim() || meeting.busy}>
             Say
-          </button>
+          </Button>
         </form>
       ) : null}
 
       <div className="mt-3">
-        <NeonButton color={meeting.status === "done" ? COLORS.cyan : COLORS.red} onClick={closeMeeting} testId="meeting-close">
+        <Button color={meeting.status === "done" ? T.cyan : T.red} variant={meeting.status === "done" ? "primary" : "ghost"} onClick={closeMeeting} testId="meeting-close" full>
           {meeting.status === "done" ? "Back to work" : "End early"}
-        </NeonButton>
+        </Button>
       </div>
     </div>
+  );
+}
+
+export function TypingDots() {
+  return (
+    <span className="inline-flex items-center gap-1" aria-label="typing">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="h-1.5 w-1.5 rounded-full bg-ink2" style={{ animation: `typing-dot 1.1s ${i * 150}ms infinite` }} />
+      ))}
+    </span>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useGame } from "@/game/store";
 import type { GameState } from "@/game/types";
-import { play, setSoundEnabled, unlockAudio, type Sfx } from "@/lib/sound";
+import { play, setSoundEnabled, setVolumes, unlockAudio, type Sfx } from "@/lib/sound";
 
 /** Count worker messages across all chats. */
 function workerMessages(g: GameState): number {
@@ -27,6 +27,7 @@ export default function SoundDirector() {
       const g = st.game;
       const p = prev.game;
       if (g?.settings.sound !== p?.settings.sound) setSoundEnabled(g?.settings.sound ?? true);
+      if (g && (g.settings.music !== p?.settings.music || g.settings.sfx !== p?.settings.sfx)) setVolumes(g.settings.music, g.settings.sfx);
       if (!g || !p || g === p) return;
       const sounds = new Set<Sfx>();
 
@@ -51,7 +52,8 @@ export default function SoundDirector() {
       if (g.log.length && g.log !== p.log) {
         const last = g.log[g.log.length - 1];
         if (last !== p.log[p.log.length - 1]) {
-          if (/^(🏗️|⬆️)/.test(last.text) || /Bought/.test(last.text)) sounds.add("build");
+          if (/^⬆️/.test(last.text) || /Bought/.test(last.text)) sounds.add("levelup");
+          else if (/^🏗️/.test(last.text)) sounds.add("build");
           else if (/is live\.$/.test(last.text) || /Mission complete/.test(last.text)) sounds.add("coin");
         }
       }
@@ -64,7 +66,9 @@ export default function SoundDirector() {
       if (st.panel?.id === "room" && st.panel !== prev.panel) play("door");
     });
 
-    setSoundEnabled(useGame.getState().game?.settings.sound ?? true);
+    const st = useGame.getState().game?.settings;
+    setVolumes(st?.music ?? 0.5, st?.sfx ?? 0.8);
+    setSoundEnabled(st?.sound ?? true);
     return () => {
       unsub();
       unsubUi();

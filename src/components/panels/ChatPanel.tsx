@@ -1,15 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { answerRaise, sendChat } from "@/game/aiStore";
+import { answerRaise, chatBonus, sendChat } from "@/game/aiStore";
 import { floorBase } from "@/game/building";
 import { useGame } from "@/game/store";
+import { clockOf } from "@/game/time";
+import type { ChatMessage } from "@/game/types";
+import { Icon } from "@/ui/icons";
+import { T } from "@/ui/tokens";
 import Panel from "../Panel";
 import Portrait from "../Portrait";
-import { moodEmoji } from "../ui";
+import { Button, Chip, moodLabel } from "../ui";
 import { usePolledGame } from "../usePolled";
+import { TypingDots } from "./MeetingPanel";
 
-const SUGGESTIONS = ["how's it going?", "go work on the shop", "take a break", "great work today!"];
+const QUICK: { label: string; say?: string; bonus?: number }[] = [
+  { label: "Good job", say: "good job today!" },
+  { label: "Bonus $100", bonus: 100 },
+  { label: "Go to the shop", say: "go work on the shop" },
+  { label: "What are you working on?", say: "what are you working on?" },
+];
 
 export default function ChatPanel({ workerId, onClose }: { workerId: string; onClose: () => void }) {
   const game = usePolledGame(150);
@@ -28,6 +38,7 @@ export default function ChatPanel({ workerId, onClose }: { workerId: string; onC
   }, [count, pending]);
 
   if (!game || !w) return null;
+  const mood = moodLabel(w.mood);
 
   const send = (msg: string) => {
     if (!msg.trim() || pending) return;
@@ -35,89 +46,18 @@ export default function ChatPanel({ workerId, onClose }: { workerId: string; onC
     setText("");
   };
 
-  return (
-    <Panel title={`Chat · ${w.name}`} accent={w.look.outfit} onClose={onClose} testId="panel-chat">
-      <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-        <button
-          type="button"
-          onClick={() => {
-            openPanel({ id: "worker", ref: w.id });
-            focusOn(w.x, floorBase(w.floor) - 8);
-          }}
-          className="flex items-center gap-2 text-left"
-          aria-label={`Open ${w.name}'s profile`}
-        >
-          <Portrait look={w.look} scale={2} />
-          <span>
-            <span className="block font-pixel text-lg leading-none text-white">{w.name}</span>
-            <span className="text-[11px] text-white/50">
-              {w.role} · {moodEmoji(w.mood)} mood {Math.round(w.mood)} · ⚡{Math.round(w.energy)}
-            </span>
-          </span>
-        </button>
-      </div>
+  // A player message is "read" once a worker message follows it.
+  const lastWorkerIdx = thread.map((m) => m.from).lastIndexOf("worker");
 
-      <ul ref={listRef} className="scroll-thin flex max-h-[30vh] min-h-32 flex-col md:max-h-[60vh] gap-1.5 overflow-y-auto py-3" data-testid="chat-thread">
-        {thread.length === 0 && <li className="text-center text-xs text-white/40">Say hi to {w.name}. They will remember what you tell them.</li>}
-        {thread.map((m) => (
-          <li key={m.id} className={`flex flex-col ${m.from === "player" ? "items-end" : "items-start"}`}>
-            <span
-              className={`max-w-[85%] rounded-2xl px-3 py-1.5 text-sm whitespace-pre-wrap ${
-                m.from === "player" ? "rounded-br-sm bg-cyan/25 text-white" : "rounded-bl-sm bg-white/10 text-white"
-              }`}
-              data-testid={m.from === "worker" ? "chat-worker-msg" : "chat-player-msg"}
-            >
-              {m.text}
-            </span>
-            {m.request?.type === "raise" && (
-              <div className="mt-1 flex items-center gap-1.5 rounded-lg border border-hud/40 bg-hud/10 px-2 py-1 text-xs">
-                <span className="text-hud">Raise request: +${m.request.amount}/day</span>
-                {m.request.status === "open" ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => answerRaise(w.id, m.id, true)}
-                      className="rounded bg-neon-green/20 px-2 py-0.5 text-neon-green"
-                      data-testid="raise-approve"
-                    >
-                      Approve
-                    </button>
-                    <button type="button" onClick={() => answerRaise(w.id, m.id, false)} className="rounded bg-danger/15 px-2 py-0.5 text-danger">
-                      Decline
-                    </button>
-                  </>
-                ) : (
-                  <span className="text-white/50">{m.request.status}</span>
-                )}
-              </div>
-            )}
-          </li>
-        ))}
-        {pending && (
-          <li className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-3 py-2" data-testid="chat-typing" aria-label={`${w.name} is typing`}>
-            <span className="inline-flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/60" style={{ animationDelay: `${i * 120}ms` }} />
-              ))}
-            </span>
-          </li>
-        )}
-      </ul>
-
-      <div className="scroll-thin -mx-1 flex gap-1 overflow-x-auto px-1 pb-2">
-        {SUGGESTIONS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => send(s)}
-            disabled={pending}
-            className="shrink-0 rounded-full border border-white/15 px-2.5 py-1 text-[11px] text-white/70 hover:border-cyan/50 hover:text-white disabled:opacity-40"
-          >
-            {s}
-          </button>
+  const footer = (
+    <div className="flex flex-col gap-2">
+      <div className="scroll-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {QUICK.map((q) => (
+          <Chip key={q.label} color={q.bonus ? T.yellow : T.cyan} disabled={pending || (q.bonus !== undefined && game.cash < q.bonus)} onClick={() => (q.bonus ? chatBonus(workerId, q.bonus) : send(q.say!))}>
+            {q.label}
+          </Chip>
         ))}
       </div>
-
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -131,20 +71,98 @@ export default function ChatPanel({ workerId, onClose }: { workerId: string; onC
           maxLength={500}
           placeholder={`Message ${w.name}…`}
           aria-label={`Message ${w.name}`}
-          className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-cyan"
+          className="h-11 min-w-0 flex-1 rounded-button border border-line bg-raised px-3 text-md text-ink outline-none focus:border-cyan"
           data-testid="chat-input"
           enterKeyHint="send"
         />
-        <button
-          type="submit"
-          disabled={!text.trim() || pending}
-          className="rounded-lg bg-cyan px-3 font-pixel text-lg text-ink disabled:opacity-40"
-          data-testid="chat-send"
-        >
+        <Button type="submit" variant="primary" disabled={!text.trim() || pending} testId="chat-send">
           Send
-        </button>
+        </Button>
       </form>
-      {!game.settings.ai && <p className="mt-2 text-[10px] text-white/40">AI replies are off in Settings: scripted replies only.</p>}
+    </div>
+  );
+
+  return (
+    <Panel title={w.name} icon="chat" accent={w.look.outfit} onClose={onClose} testId="panel-chat" footer={footer}>
+      <button
+        type="button"
+        onClick={() => {
+          openPanel({ id: "worker", ref: w.id });
+          focusOn(w.x, floorBase(w.floor) - 8);
+        }}
+        className="pressable -mx-1 flex min-h-11 w-[calc(100%+8px)] items-center gap-3 rounded-button px-1 text-left hover:bg-raised"
+        aria-label={`Open ${w.name}'s profile`}
+      >
+        <Portrait look={w.look} scale={2} />
+        <span className="min-w-0">
+          <span className="block text-sm text-ink2">
+            {w.role} · <span style={{ color: mood.color }}>{mood.text}</span> · energy {Math.round(w.energy)}
+          </span>
+        </span>
+        <Icon name="arrow" size={12} color={T.muted} className="ml-auto" />
+      </button>
+
+      <ul ref={listRef} className="scroll-thin flex max-h-[34vh] min-h-32 flex-col gap-2 overflow-y-auto py-3 md:max-h-[58vh]" data-testid="chat-thread">
+        {thread.length === 0 && <li className="py-4 text-center text-sm text-ink2">Say hi to {w.name}. They remember what you tell them.</li>}
+        {thread.map((m, i) => (
+          <Bubble key={m.id} m={m} look={w.look} read={m.from === "player" && i < lastWorkerIdx} workerId={w.id} />
+        ))}
+        {pending && (
+          <li className="flex items-end gap-2" data-testid="chat-typing" aria-label={`${w.name} is typing`}>
+            <Portrait look={w.look} scale={1.5} />
+            <span className="rounded-2xl rounded-bl-sm bg-raised px-3 py-2.5">
+              <TypingDots />
+            </span>
+          </li>
+        )}
+      </ul>
+      {!game.settings.ai && <p className="text-xs text-muted">AI replies are off in Settings.</p>}
     </Panel>
+  );
+}
+
+function Bubble({ m, look, read, workerId }: { m: ChatMessage; look: Parameters<typeof Portrait>[0]["look"]; read: boolean; workerId: string }) {
+  if (m.from === "system") {
+    return (
+      <li className="flex justify-center" data-testid="chat-system">
+        <span className="rounded-chip border border-line bg-surface px-2.5 py-1 text-xs text-ink2">{m.text}</span>
+      </li>
+    );
+  }
+  const mine = m.from === "player";
+  return (
+    <li className={`animate-pop flex items-start gap-2 ${mine ? "flex-row-reverse" : ""}`}>
+      {!mine && (
+        <span className="mt-1 shrink-0">
+          <Portrait look={look} scale={1.5} />
+        </span>
+      )}
+      <div className={`flex max-w-[82%] flex-col ${mine ? "items-end" : "items-start"}`}>
+        <span className={`rounded-2xl px-3 py-2 text-md whitespace-pre-wrap ${mine ? "rounded-br-sm bg-cyan/20 text-ink" : "rounded-bl-sm bg-raised text-ink"}`} data-testid={mine ? "chat-player-msg" : "chat-worker-msg"}>
+          {m.text}
+        </span>
+        <span className="mt-0.5 flex items-center gap-1 px-1 font-pixel text-xs text-muted">
+          {clockOf(m.t)}
+          {mine && <span style={{ color: read ? T.cyan : T.muted }}>{read ? "✓✓" : "✓"}</span>}
+        </span>
+        {m.request?.type === "raise" && (
+          <div className="mt-1 flex flex-wrap items-center gap-2 rounded-button border border-yellow/40 bg-yellow/10 px-3 py-2 text-sm">
+            <span className="text-yellow">Raise request: +${m.request.amount}/day</span>
+            {m.request.status === "open" ? (
+              <>
+                <Button size="sm" variant="primary" color={T.green} onClick={() => answerRaise(workerId, m.id, true)} testId="raise-approve">
+                  Approve
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => answerRaise(workerId, m.id, false)}>
+                  Decline
+                </Button>
+              </>
+            ) : (
+              <span className="text-ink2">{m.request.status}</span>
+            )}
+          </div>
+        )}
+      </div>
+    </li>
   );
 }

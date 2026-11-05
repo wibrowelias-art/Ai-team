@@ -4,39 +4,29 @@ import { useEffect, useState } from "react";
 import { buildOptions } from "@/game/build";
 import { ROOM_DEFS } from "@/game/building";
 import { FOCUS_LABEL } from "@/game/business";
-import { COLORS } from "@/game/constants";
 import { REROLL_COST } from "@/game/hiring";
 import { useGame } from "@/game/store";
 import { formatMoney } from "@/game/time";
 import type { GameState, RoomSlot } from "@/game/types";
-import {
-  addFloorCost,
-  BUILD_COST,
-  MAX_FLOORS,
-  MAX_ROOM_LEVEL,
-  MAX_UPGRADE_LEVEL,
-  maxCrew,
-  ROOM_EFFECT,
-  roomUpgradeCost,
-  SHOP_UPGRADES,
-  UNIQUE_ROOMS,
-  UPGRADE_IDS,
-  upgradeCost,
-} from "@/game/upgrades";
+import { addFloorCost, BUILD_COST, MAX_FLOORS, MAX_ROOM_LEVEL, MAX_UPGRADE_LEVEL, maxCrew, ROOM_EFFECT, roomUpgradeCost, SHOP_UPGRADES, UNIQUE_ROOMS, UPGRADE_IDS, upgradeCost } from "@/game/upgrades";
+import { Icon } from "@/ui/icons";
+import { T } from "@/ui/tokens";
 import Panel from "../Panel";
 import Portrait from "../Portrait";
-import { NeonButton, Section } from "../ui";
+import { Button, Empty, Section } from "../ui";
 import { usePolledGame } from "../usePolled";
 
 function Pips({ level, max, color }: { level: number; max: number; color: string }) {
   return (
     <span className="inline-flex gap-0.5" aria-label={`Level ${level} of ${max}`}>
       {Array.from({ length: max }, (_, i) => (
-        <span key={i} className="h-2 w-2 rounded-sm" style={{ background: i < level ? color : "rgba(255,255,255,0.12)" }} />
+        <span key={i} className="h-2 w-2 rounded-sm" style={{ background: i < level ? color : T.border }} />
       ))}
     </span>
   );
 }
+
+const costTitle = (cash: number, cost: number) => (cash < cost ? `Not enough cash (need ${formatMoney(cost)})` : undefined);
 
 /** Build / upgrade box for one room (used in the room panel and the Build panel). */
 export function RoomBuildBox({ room, cash, compact = false }: { room: RoomSlot; cash: number; compact?: boolean }) {
@@ -49,16 +39,16 @@ export function RoomBuildBox({ room, cash, compact = false }: { room: RoomSlot; 
   if (room.locked) {
     const cost = BUILD_COST[room.type];
     return (
-      <div className="rounded border border-white/10 bg-black/20 p-2" data-testid={`build-${room.id}`}>
-        <div className="flex items-center justify-between gap-2">
+      <div className="rounded-button border border-line bg-raised p-3" data-testid={`build-${room.id}`}>
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="font-pixel text-base text-white">{def.name}</div>
-            {effect && <div className="text-[11px] text-white/55">{effect}</div>}
+            <div className="font-pixel text-lg text-ink">{def.name}</div>
+            {effect && <div className="text-xs text-ink2">{effect}</div>}
           </div>
           {cost !== undefined && (
-            <NeonButton color={COLORS.purple} disabled={cash < cost} onClick={() => buildRoom(room.id)} testId={`build-btn-${room.id}`}>
-              Build {formatMoney(cost)}
-            </NeonButton>
+            <Button color={T.purple} variant="primary" disabled={cash < cost} title={costTitle(cash, cost)} onClick={() => buildRoom(room.id)} testId={`build-btn-${room.id}`}>
+              {formatMoney(cost)}
+            </Button>
           )}
         </div>
       </div>
@@ -67,21 +57,21 @@ export function RoomBuildBox({ room, cash, compact = false }: { room: RoomSlot; 
   const maxed = room.level >= MAX_ROOM_LEVEL;
   const cost = roomUpgradeCost(room.level);
   return (
-    <div className={compact ? "" : "rounded border border-white/10 bg-black/20 p-2"} data-testid={`upgrade-${room.id}`}>
-      <div className="flex items-center justify-between gap-2">
+    <div className={compact ? "" : "rounded-button border border-line bg-raised p-3"} data-testid={`upgrade-${room.id}`}>
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            {!compact && <span className="font-pixel text-base text-white">{def.name}</span>}
+            {!compact && <span className="font-pixel text-lg text-ink">{def.name}</span>}
             <Pips level={room.level} max={MAX_ROOM_LEVEL} color={def.color} />
           </div>
-          {effect && <div className="text-[11px] text-white/55">{effect}</div>}
+          {effect && <div className="text-xs text-ink2">{effect}</div>}
         </div>
         {maxed ? (
-          <span className="font-pixel text-sm text-white/40">MAX</span>
+          <span className="font-pixel text-md text-ink2">MAX</span>
         ) : (
-          <NeonButton color={def.color} disabled={cash < cost} onClick={() => upgradeRoom(room.id)} testId={`upgrade-btn-${room.id}`}>
-            Lv{room.level + 1} {formatMoney(cost)}
-          </NeonButton>
+          <Button color={def.color} disabled={cash < cost} title={costTitle(cash, cost)} onClick={() => upgradeRoom(room.id)} testId={`upgrade-btn-${room.id}`}>
+            Lv{room.level + 1} · {formatMoney(cost)}
+          </Button>
         )}
       </div>
     </div>
@@ -95,35 +85,35 @@ function EmptySlotBox({ room, cash, compact }: { room: RoomSlot; cash: number; c
   const [open, setOpen] = useState(compact);
   const options = game ? buildOptions(game, room.id) : [];
   return (
-    <div className="rounded border border-dashed border-white/20 bg-black/20 p-2" data-testid={`build-${room.id}`}>
-      <div className="flex items-center justify-between gap-2">
+    <div className="rounded-button border border-dashed border-line bg-raised/60 p-3" data-testid={`build-${room.id}`}>
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-pixel text-base text-white">Empty slot · floor {(game?.building.floors ?? 0) - room.floor}</div>
-          <div className="text-[11px] text-white/55">Pick what to build here.</div>
+          <div className="font-pixel text-lg text-ink">Empty slot · floor {(game?.building.floors ?? 0) - room.floor}</div>
+          <div className="text-xs text-ink2">Pick what to build here.</div>
         </div>
         {!compact && (
-          <NeonButton color={COLORS.purple} onClick={() => setOpen(!open)} testId={`choose-${room.id}`}>
+          <Button color={T.purple} icon="plus" onClick={() => setOpen(!open)} testId={`choose-${room.id}`}>
             {open ? "Hide" : "Choose"}
-          </NeonButton>
+          </Button>
         )}
       </div>
       {open && (
-        <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        <ul className="stagger mt-3 grid grid-cols-1 gap-2">
           {options.map((t) => {
             const def = ROOM_DEFS[t];
             const cost = BUILD_COST[t] ?? 0;
             return (
-              <li key={t} className="flex items-center justify-between gap-2 rounded border border-white/10 bg-black/30 p-1.5">
+              <li key={t} className="flex items-center justify-between gap-3 rounded-button border border-line bg-surface p-2">
                 <div className="min-w-0">
-                  <div className="font-pixel text-[15px]" style={{ color: def.color }}>
+                  <div className="font-pixel text-md" style={{ color: def.color }}>
                     {def.name}
-                    {UNIQUE_ROOMS.includes(t) ? <span className="ml-1 text-[11px] text-white/40">unique</span> : null}
+                    {UNIQUE_ROOMS.includes(t) ? <span className="ml-1 text-xs text-muted">unique</span> : null}
                   </div>
-                  <div className="text-[10px] leading-tight text-white/55">{ROOM_EFFECT[t]}</div>
+                  <div className="text-xs leading-tight text-ink2">{ROOM_EFFECT[t]}</div>
                 </div>
-                <NeonButton color={def.color} disabled={cash < cost} onClick={() => buildRoom(room.id, t)} testId={`build-${room.id}-${t}`}>
+                <Button color={def.color} disabled={cash < cost} title={costTitle(cash, cost)} onClick={() => buildRoom(room.id, t)} testId={`build-${room.id}-${t}`}>
                   {formatMoney(cost)}
-                </NeonButton>
+                </Button>
               </li>
             );
           })}
@@ -139,18 +129,15 @@ export function BuildContent({ game }: { game: GameState }) {
   const locked = game.building.rooms.filter((r) => r.locked);
   const built = game.building.rooms.filter((r) => !r.locked);
   const canAddFloor = game.building.floors < MAX_FLOORS;
+  const floorCost = addFloorCost(game.building.floors);
 
   return (
     <div data-testid="build-content">
-      <p className="font-pixel text-[15px] text-white/60">
-        Cash <span className="text-hud">{formatMoney(game.cash)}</span>
-      </p>
-
       <Section title={`New rooms · ${locked.length}`}>
         {locked.length === 0 ? (
-          <p className="text-xs text-white/40">Every room is built.{canAddFloor ? " Add a floor for more." : ""}</p>
+          <Empty icon="build" text={canAddFloor ? "Every slot is built. Add a floor for more room." : "Every slot is built and the tower is at full height."} />
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="stagger flex flex-col gap-2">
             {locked.map((r) => (
               <RoomBuildBox key={r.id} room={r} cash={game.cash} />
             ))}
@@ -160,16 +147,14 @@ export function BuildContent({ game }: { game: GameState }) {
 
       <Section title={`Floors · ${game.building.floors}/${MAX_FLOORS}`}>
         {canAddFloor ? (
-          <div className="flex items-center justify-between gap-2 rounded border border-white/10 bg-black/20 p-2">
-            <div className="text-[11px] text-white/55">
-              A new top floor with 4 empty slots to build anything from the catalog. Rent goes up $150/day.
-            </div>
-            <NeonButton color={COLORS.cyan} disabled={game.cash < addFloorCost(game.building.floors)} onClick={addFloor} testId="add-floor">
-              Add {formatMoney(addFloorCost(game.building.floors))}
-            </NeonButton>
+          <div className="flex items-center justify-between gap-3 rounded-button border border-line bg-raised p-3">
+            <div className="text-xs text-ink2">A new top floor with 4 empty slots. Rent goes up with every floor.</div>
+            <Button color={T.cyan} variant="primary" icon="plus" disabled={game.cash < floorCost} title={costTitle(game.cash, floorCost)} onClick={addFloor} testId="add-floor">
+              {formatMoney(floorCost)}
+            </Button>
           </div>
         ) : (
-          <p className="text-xs text-white/40">The building is at its maximum height.</p>
+          <p className="text-sm text-ink2">The building is at its maximum height.</p>
         )}
       </Section>
 
@@ -180,22 +165,20 @@ export function BuildContent({ game }: { game: GameState }) {
             const lvl = game.upgrades[id] ?? 0;
             const cost = upgradeCost(id, lvl);
             return (
-              <div key={id} className="flex items-center justify-between gap-2 rounded border border-white/10 bg-black/20 p-2" data-testid={`shop-${id}`}>
+              <div key={id} className="flex items-center justify-between gap-3 rounded-button border border-line bg-raised p-3" data-testid={`shop-${id}`}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-pixel text-base text-white">
-                      {def.icon} {def.name}
-                    </span>
-                    <Pips level={lvl} max={MAX_UPGRADE_LEVEL} color={COLORS.yellow} />
+                    <span className="font-pixel text-lg text-ink">{def.name}</span>
+                    <Pips level={lvl} max={MAX_UPGRADE_LEVEL} color={T.yellow} />
                   </div>
-                  <div className="text-[11px] text-white/55">{def.blurb}</div>
+                  <div className="text-xs text-ink2">{def.blurb}</div>
                 </div>
                 {cost === null ? (
-                  <span className="font-pixel text-sm text-white/40">MAX</span>
+                  <span className="font-pixel text-md text-ink2">MAX</span>
                 ) : (
-                  <NeonButton color={COLORS.yellow} disabled={game.cash < cost} onClick={() => buyUpgrade(id)} testId={`buy-${id}`}>
+                  <Button color={T.yellow} disabled={game.cash < cost} title={costTitle(game.cash, cost)} onClick={() => buyUpgrade(id)} testId={`buy-${id}`}>
                     {formatMoney(cost)}
-                  </NeonButton>
+                  </Button>
                 )}
               </div>
             );
@@ -218,7 +201,10 @@ export function BuildPanel({ onClose }: { onClose: () => void }) {
   const game = usePolledGame(300);
   if (!game) return null;
   return (
-    <Panel title="Build" accent={COLORS.purple} onClose={onClose} testId="panel-build">
+    <Panel title="Build" icon="build" accent={T.purple} onClose={onClose} testId="panel-build">
+      <p className="mb-2 text-sm text-ink2">
+        Cash <span className="font-pixel text-md text-yellow">{formatMoney(game.cash)}</span>
+      </p>
       <BuildContent game={game} />
     </Panel>
   );
@@ -236,46 +222,60 @@ export function HirePanel({ onClose }: { onClose: () => void }) {
   const full = game.workers.length >= cap;
 
   return (
-    <Panel title="Hire" accent={COLORS.green} onClose={onClose} testId="panel-hire">
-      <p className="text-xs text-white/60">
-        Crew {game.workers.length}/{cap}. Hiring costs one day&apos;s salary as a signing bonus. New shortlist every day.
+    <Panel
+      title="Hire"
+      icon="hire"
+      accent={T.green}
+      onClose={onClose}
+      testId="panel-hire"
+      footer={
+        <Button color={T.cyan} icon="crew" disabled={game.cash < REROLL_COST} title={costTitle(game.cash, REROLL_COST)} onClick={reroll} testId="reroll" full>
+          New shortlist · {formatMoney(REROLL_COST)}
+        </Button>
+      }
+    >
+      <p className="text-sm text-ink2">
+        Crew {game.workers.length}/{cap}. Hiring costs one day&apos;s salary as a signing bonus. A new shortlist arrives every day.
       </p>
-      <ul className="mt-3 flex flex-col gap-2">
+      {full && <p className="mt-2 text-sm text-red">The building is full. Build an Open Office for more desks.</p>}
+      <ul className="stagger mt-3 flex flex-col gap-2">
         {game.candidates.map((c) => (
-          <li key={c.id} className="rounded border border-white/10 bg-black/20 p-2" data-testid="candidate">
+          <li key={c.id} className="rounded-button border border-line bg-raised p-3" data-testid="candidate">
             <div className="flex gap-3">
-              <div className="flex h-14 w-12 shrink-0 items-center justify-center rounded bg-ink2">
+              <div className="flex h-14 w-12 shrink-0 items-center justify-center rounded-button bg-surface">
                 <Portrait look={c.look} scale={3} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-pixel text-lg leading-none text-white">{c.name}</span>
-                  <span className="font-pixel text-[15px] text-hud">{formatMoney(c.salary)}/day</span>
+                  <span className="font-pixel text-lg leading-none text-ink">{c.name}</span>
+                  <span className="font-pixel text-md text-yellow">{formatMoney(c.salary)}/day</span>
                 </div>
-                <div className="text-[11px] text-cyan/80">
+                <div className="text-xs text-cyan">
                   {c.role} · {FOCUS_LABEL[c.focus]} · skill {c.skill}
                 </div>
-                <div className="text-[11px] text-white/60 italic">{c.personality}</div>
-                <div className="text-[11px] text-white/50">{c.bio}</div>
+                <div className="text-xs text-ink2 italic">{c.personality}</div>
+                <div className="text-xs text-ink2">{c.bio}</div>
               </div>
             </div>
-            <div className="mt-2 flex justify-end gap-2">
-              <button type="button" onClick={() => skip(c.id)} className="rounded border border-white/15 px-3 py-1 font-pixel text-[15px] text-white/60">
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button variant="soft" onClick={() => skip(c.id)}>
                 Skip
-              </button>
-              <NeonButton color={COLORS.green} disabled={full || game.cash < c.salary} onClick={() => hire(c.id)} testId="hire-btn">
+              </Button>
+              <Button variant="primary" color={T.green} icon="check" disabled={full || game.cash < c.salary} title={full ? "No desks left" : costTitle(game.cash, c.salary)} onClick={() => hire(c.id)} testId="hire-btn">
                 Hire
-              </NeonButton>
+              </Button>
             </div>
           </li>
         ))}
-        {game.candidates.length === 0 && <li className="text-xs text-white/40">No candidates left today.</li>}
+        {game.candidates.length === 0 && (
+          <li>
+            <Empty icon="hire" text="No candidates left today. A new shortlist arrives tomorrow, or pay a recruiter now." />
+          </li>
+        )}
       </ul>
-      <div className="mt-3">
-        <NeonButton color={COLORS.cyan} disabled={game.cash < REROLL_COST} onClick={reroll} testId="reroll">
-          New shortlist ({formatMoney(REROLL_COST)})
-        </NeonButton>
-      </div>
+      <p className="mt-3 flex items-center gap-1 text-xs text-muted">
+        <Icon name="clock" size={10} /> Signing bonus is paid once; salary is paid daily at midnight.
+      </p>
     </Panel>
   );
 }

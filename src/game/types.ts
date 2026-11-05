@@ -222,7 +222,8 @@ export interface GameEvent {
 
 export interface ChatMessage {
   id: string;
-  from: "player" | "worker";
+  /** "system" lines are small chips like "Luke moved to the Factory" */
+  from: "player" | "worker" | "system";
   text: string;
   t: number;
   /** "ai" when the text came from the model, "script" for scripted lines */
@@ -273,6 +274,10 @@ export interface Settings {
   ai: boolean;
   /** auto picks a level from measured frame times */
   graphics: "auto" | "high" | "low";
+  /** 0..1 */
+  music: number;
+  /** 0..1 */
+  sfx: number;
 }
 
 export interface GameState {

@@ -2,19 +2,44 @@
 
 import { useRef } from "react";
 import { findRoom, ROOM_DEFS } from "@/game/building";
-import { COLORS, SPEEDS } from "@/game/constants";
+import { SPEEDS } from "@/game/constants";
 import { deserialize, serialize } from "@/game/save";
 import { useGame } from "@/game/store";
 import { clockOf, dayOf } from "@/game/time";
-import type { GameState, LogEntry } from "@/game/types";
+import type { GameState, LogEntry, RoomType } from "@/game/types";
+import { aiCallsLeft } from "@/lib/aiClient";
+import { Icon, type IconName } from "@/ui/icons";
+import { T } from "@/ui/tokens";
 import Panel from "../Panel";
 import Portrait from "../Portrait";
-import { activityLabel, NeonButton, Section, Soon } from "../ui";
+import { activityLabel, Button, Chip, Empty, Section, Toggle } from "../ui";
+import { usePolledGame } from "../usePolled";
+import { RoomBuildBox } from "./BuildPanels";
 import { CommandContent, FactoryContent, RevenueContent, TreasuryContent } from "./EconomyPanels";
 import { MeetingContent } from "./MeetingPanel";
-import { RoomBuildBox } from "./BuildPanels";
-import { aiCallsLeft } from "@/lib/aiClient";
-import { usePolledGame } from "../usePolled";
+
+export const ROOM_ICON: Partial<Record<RoomType, IconName>> = {
+  COMMAND: "star",
+  WAR_ROOM: "meeting",
+  REVENUE_BAY: "chart",
+  TREASURY: "treasury",
+  FACTORY: "factory",
+  CHILL: "heart",
+  SERVER_ROOM: "bolt",
+  RECORDING_STUDIO: "music",
+  MARKETING_LAB: "phone",
+  VAULT: "lock",
+  ROOFTOP_LOUNGE: "sun",
+  TRADING_DESK: "chart",
+  GYM: "bolt",
+  CAFE: "coin",
+  NAP_PODS: "bed",
+  OFFICE: "crew",
+  DATA_CENTER: "flask",
+  PODCAST_BOOTH: "sound",
+  MERCH_STORE: "shop",
+  EMPTY: "plus",
+};
 
 export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) {
   const game = usePolledGame();
@@ -25,21 +50,22 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
   const def = ROOM_DEFS[room.type];
   if (room.type === "WAR_ROOM" && meetingLive) {
     return (
-      <Panel title="Meeting" accent={def.color} onClose={onClose} testId="panel-room">
+      <Panel title="Meeting" icon="meeting" accent={def.color} onClose={onClose} testId="panel-room">
         <MeetingContent game={game} />
       </Panel>
     );
   }
   const here = game.workers.filter((w) => w.target?.roomId === room.id && w.activity !== "walking");
   const heading = game.workers.filter((w) => w.target?.roomId === room.id && w.activity === "walking");
+  const accent = room.locked ? T.muted : def.color;
 
   return (
-    <Panel title={def.name} accent={room.locked ? "#5a5470" : def.color} onClose={onClose} testId="panel-room">
-      <p className="text-xs text-white/70">{def.blurb}</p>
-      <div className="mt-3 flex gap-2 font-pixel text-[15px]">
-        <span className="rounded bg-black/30 px-2 py-1 text-white/60">Floor {room.floor + 1}</span>
-        <span className="rounded bg-black/30 px-2 py-1" style={{ color: def.color }}>
-          {room.locked ? "LOCKED" : `Level ${room.level}/5`}
+    <Panel title={def.name} icon={ROOM_ICON[room.type]} accent={accent} onClose={onClose} testId="panel-room">
+      <p className="text-sm text-ink2">{def.blurb}</p>
+      <div className="mt-3 flex gap-2">
+        <span className="rounded-chip bg-raised px-3 py-1.5 font-pixel text-md text-ink2">Floor {game.building.floors - room.floor}</span>
+        <span className="rounded-chip bg-raised px-3 py-1.5 font-pixel text-md" style={{ color: accent }}>
+          {room.locked ? (room.type === "EMPTY" ? "EMPTY" : "NOT BUILT") : `Level ${room.level}/5`}
         </span>
       </div>
       <div className="mt-3">
@@ -47,30 +73,27 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
       </div>
       {room.locked ? null : (
         <>
-          {/* The War Room is all about the meeting, so its occupant list is skipped. */}
           {room.type !== "WAR_ROOM" && (
             <Section title={`In the room · ${here.length}`}>
               {here.length === 0 ? (
-                <p className="text-xs text-white/40">Nobody here right now.</p>
+                <p className="text-sm text-ink2">Nobody here right now.{heading.length ? ` On the way: ${heading.map((w) => w.name).join(", ")}.` : ""}</p>
               ) : (
-                <ul className="flex flex-col gap-1">
+                <ul className="stagger flex flex-col gap-1">
                   {here.map((w) => (
                     <li key={w.id}>
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-1 py-1 text-left hover:bg-white/5"
+                        className="pressable flex min-h-11 w-full items-center gap-3 rounded-button px-2 text-left hover:bg-raised"
                         onClick={() => openPanel({ id: "worker", ref: w.id })}
                       >
                         <Portrait look={w.look} scale={1.5} />
-                        <span className="font-pixel text-base text-white">{w.name}</span>
-                        <span className="truncate text-[11px] text-white/50">{activityLabel(w, game.building)}</span>
+                        <span className="font-pixel text-md text-ink">{w.name}</span>
+                        <span className="truncate text-xs text-ink2">{activityLabel(w, game.building)}</span>
                       </button>
                     </li>
                   ))}
+                  {heading.length > 0 && <li className="px-2 text-xs text-ink2">On the way: {heading.map((w) => w.name).join(", ")}</li>}
                 </ul>
-              )}
-              {heading.length > 0 && (
-                <p className="mt-2 text-[11px] text-white/40">On the way: {heading.map((w) => w.name).join(", ")}</p>
               )}
             </Section>
           )}
@@ -81,12 +104,7 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
   );
 }
 
-const ROOM_FEATURES: Partial<Record<string, string>> = {
-  CHILL: "Tired workers come here to recover energy.",
-  SERVER_ROOM: "Server upgrades arrive in Phase 4. Pham produces music here.",
-};
-
-function RoomFeature({ type, game }: { type: string; game: GameState }) {
+function RoomFeature({ type, game }: { type: RoomType; game: GameState }) {
   switch (type) {
     case "COMMAND":
       return <CommandContent game={game} />;
@@ -94,28 +112,24 @@ function RoomFeature({ type, game }: { type: string; game: GameState }) {
       return <MeetingContent game={game} />;
     case "REVENUE_BAY":
       return (
-        <div className="mt-4">
+        <div className="mt-6">
           <RevenueContent game={game} />
         </div>
       );
     case "TREASURY":
       return (
-        <div className="mt-4">
+        <div className="mt-6">
           <TreasuryContent game={game} />
         </div>
       );
     case "FACTORY":
       return (
-        <div className="mt-4">
+        <div className="mt-6">
           <FactoryContent game={game} />
         </div>
       );
     default:
-      return (
-        <Section title="Notes">
-          <Soon>{ROOM_FEATURES[type] ?? "More features arrive in later phases."}</Soon>
-        </Section>
-      );
+      return null;
   }
 }
 
@@ -123,7 +137,7 @@ export function TreasuryPanel({ onClose }: { onClose: () => void }) {
   const game = usePolledGame(300);
   if (!game) return null;
   return (
-    <Panel title="Treasury" accent={COLORS.yellow} onClose={onClose} testId="panel-treasury">
+    <Panel title="Treasury" icon="treasury" accent={T.yellow} onClose={onClose} testId="panel-treasury">
       <TreasuryContent game={game} />
     </Panel>
   );
@@ -133,7 +147,7 @@ export function RevenuePanel({ onClose }: { onClose: () => void }) {
   const game = usePolledGame(500);
   if (!game) return null;
   return (
-    <Panel title="Revenue Bay" accent={COLORS.green} onClose={onClose} testId="panel-revenue">
+    <Panel title="Revenue Bay" icon="chart" accent={T.green} onClose={onClose} testId="panel-revenue">
       <RevenueContent game={game} />
     </Panel>
   );
@@ -143,53 +157,57 @@ export function FactoryPanel({ onClose }: { onClose: () => void }) {
   const game = usePolledGame(300);
   if (!game) return null;
   return (
-    <Panel title="Factory" accent={COLORS.orange} onClose={onClose} testId="panel-factory">
+    <Panel title="Factory" icon="factory" accent={T.orange} onClose={onClose} testId="panel-factory">
       <FactoryContent game={game} />
     </Panel>
   );
 }
 
-
-const LOG_COLORS: Record<LogEntry["kind"], string> = {
-  info: "text-white/75",
-  good: "text-neon-green",
-  bad: "text-danger",
-  system: "text-cyan",
+const LOG_STYLE: Record<LogEntry["kind"], { color: string; icon: IconName }> = {
+  info: { color: T.text2, icon: "clock" },
+  good: { color: T.green, icon: "check" },
+  bad: { color: T.red, icon: "warn" },
+  system: { color: T.cyan, icon: "bolt" },
 };
 
 export function LogPanel({ onClose }: { onClose: () => void }) {
   const game = usePolledGame(500);
   if (!game) return null;
+  const entries = [...game.log].reverse();
   return (
-    <Panel title="Log" accent={COLORS.pink} onClose={onClose} testId="panel-log">
-      <ul className="flex flex-col gap-1">
-        {[...game.log].reverse().map((e, i) => (
-          <li key={`${e.t}-${i}`} className="flex gap-2 text-xs">
-            <span className="shrink-0 font-pixel text-[14px] text-[#8a84b8]">
-              D{dayOf(e.t)} {clockOf(e.t)}
-            </span>
-            <span className={LOG_COLORS[e.kind]}>{e.text}</span>
-          </li>
-        ))}
-      </ul>
+    <Panel title="Log" icon="log" accent={T.pink} onClose={onClose} testId="panel-log">
+      {entries.length === 0 ? (
+        <Empty icon="log" text="Nothing has happened yet. Every sale, event and decision ends up here." />
+      ) : (
+        <ul className="stagger flex flex-col">
+          {entries.map((e, i) => {
+            const st = LOG_STYLE[e.kind];
+            return (
+              <li key={`${e.t}-${i}`} className="flex items-start gap-3 border-b border-line/60 py-2 text-sm last:border-0">
+                <span className="mt-0.5 shrink-0" style={{ color: st.color }}>
+                  <Icon name={st.icon} size={12} />
+                </span>
+                <span className="min-w-0 flex-1 text-ink">{e.text}</span>
+                <span className="shrink-0 font-pixel text-sm text-muted">
+                  D{dayOf(e.t)} {clockOf(e.t)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Panel>
   );
 }
 
-function Toggle({ label, value, onChange, testId }: { label: string; value: boolean; onChange: (v: boolean) => void; testId?: string }) {
+function Slider({ label, value, onChange, testId }: { label: string; value: number; onChange: (v: number) => void; testId?: string }) {
   return (
-    <label className="flex items-center justify-between py-1.5">
-      <span className="font-pixel text-lg text-white/85">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={value}
-        data-testid={testId}
-        onClick={() => onChange(!value)}
-        className={`relative h-6 w-11 rounded-full border transition-colors ${value ? "border-cyan bg-cyan/30" : "border-white/20 bg-white/5"}`}
-      >
-        <span className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${value ? "left-6 bg-cyan" : "left-0.5 bg-white/50"}`} />
-      </button>
+    <label className="block">
+      <div className="flex justify-between text-md text-ink">
+        <span>{label}</span>
+        <span className="font-pixel text-md text-ink2">{Math.round(value * 100)}%</span>
+      </div>
+      <input type="range" min={0} max={100} value={Math.round(value * 100)} onChange={(e) => onChange(Number(e.target.value) / 100)} className="slider" data-testid={testId} aria-label={label} />
     </label>
   );
 }
@@ -202,6 +220,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const setSpeed = useGame((s) => s.setSpeed);
   const replaceGame = useGame((s) => s.replaceGame);
   const resetGame = useGame((s) => s.resetGame);
+  const toast = useGame((s) => s.toast);
   const fileRef = useRef<HTMLInputElement>(null);
   if (!settings) return null;
   const s = settings;
@@ -216,73 +235,79 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     a.download = `neon-hq-save-day${dayOf(game.minutes)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    toast("Save exported.");
   };
 
   const importSave = async (file: File | undefined) => {
     if (!file) return;
     const loaded = deserialize(await file.text());
     if (!loaded) {
-      window.alert("That file is not a valid NEON HQ save.");
+      toast("That file is not a NEON HQ save.", "error");
       return;
     }
     replaceGame(loaded);
+    toast("Save loaded.");
   };
 
   return (
-    <Panel title="Settings" accent={COLORS.purple} onClose={onClose} testId="panel-settings">
+    <Panel title="Settings" icon="settings" accent={T.purple} onClose={onClose} testId="panel-settings">
       <Section title="Game speed">
         <div className="grid grid-cols-4 gap-2">
           {SPEEDS.map((sp) => (
-            <button
-              key={sp}
-              type="button"
-              onClick={() => setSpeed(sp)}
-              className={`rounded border py-1.5 font-pixel text-lg ${s.speed === sp ? "border-cyan text-cyan neon-border" : "border-white/15 text-white/60"}`}
-            >
-              {sp === 0 ? "❚❚" : `${sp}x`}
-            </button>
+            <Chip key={sp} active={s.speed === sp} onClick={() => setSpeed(sp)} testId={`settings-speed-${sp}`}>
+              {sp === 0 ? "Pause" : `${sp}x`}
+            </Chip>
           ))}
+        </div>
+      </Section>
+      <Section title="Sound">
+        <Toggle label="Sound" value={s.sound} onChange={(v) => setSetting("sound", v)} hint="Chiptune effects and a synth loop" />
+        <div className="mt-2 flex flex-col gap-1">
+          <Slider label="Music" value={s.music} onChange={(v) => setSetting("music", v)} testId="music-volume" />
+          <Slider label="Effects" value={s.sfx} onChange={(v) => setSetting("sfx", v)} testId="sfx-volume" />
         </div>
       </Section>
       <Section title="Graphics">
         <div className="grid grid-cols-3 gap-2">
           {(["auto", "high", "low"] as const).map((gq) => (
-            <button
-              key={gq}
-              type="button"
-              onClick={() => setSetting("graphics", gq)}
-              className={`rounded border py-1.5 font-pixel text-lg capitalize ${s.graphics === gq ? "border-cyan text-cyan neon-border" : "border-white/15 text-white/60"}`}
-              data-testid={`graphics-${gq}`}
-            >
-              {gq}
-            </button>
+            <Chip key={gq} active={s.graphics === gq} onClick={() => setSetting("graphics", gq)} testId={`graphics-${gq}`}>
+              {gq[0].toUpperCase() + gq.slice(1)}
+            </Chip>
           ))}
         </div>
-        <p className="mt-1 text-[11px] text-white/40">
-          Now rendering at {["low", "medium", "high"][renderQuality]} quality.{s.graphics === "auto" ? " Auto lowers glow and resolution if frames get slow." : ""}
+        <p className="mt-2 text-xs text-ink2">
+          Rendering at {["low", "medium", "high"][renderQuality]} quality.{s.graphics === "auto" ? " Auto lowers glow and resolution if frames get slow." : ""}
         </p>
+        <div className="mt-2">
+          <Toggle label="CRT scanlines" value={s.scanlines} onChange={(v) => setSetting("scanlines", v)} testId="toggle-scanlines" />
+        </div>
       </Section>
-      <Section title="Options">
-        <Toggle label="Sound" value={s.sound} onChange={(v) => setSetting("sound", v)} />
-        <Toggle label="CRT scanlines" value={s.scanlines} onChange={(v) => setSetting("scanlines", v)} testId="toggle-scanlines" />
-        <Toggle label="AI replies" value={s.ai} onChange={(v) => setSetting("ai", v)} />
-        <p className="text-[11px] text-white/40">
-          {s.ai ? `${aiCallsLeft()} AI calls left this session. Scripted replies take over after that.` : "Workers use scripted replies."}
-        </p>
+      <Section title="Workers">
+        <Toggle
+          label="AI replies"
+          value={s.ai}
+          onChange={(v) => setSetting("ai", v)}
+          hint={s.ai ? `${aiCallsLeft()} AI calls left this session, then scripted replies.` : "Workers use scripted replies."}
+        />
       </Section>
       <Section title="Save">
-        <div className="flex flex-wrap gap-2">
-          <NeonButton onClick={exportSave}>Export</NeonButton>
-          <NeonButton onClick={() => fileRef.current?.click()}>Import</NeonButton>
-          <NeonButton
-            color={COLORS.red}
+        <div className="grid grid-cols-3 gap-2">
+          <Button onClick={exportSave} full>
+            Export
+          </Button>
+          <Button onClick={() => fileRef.current?.click()} full>
+            Import
+          </Button>
+          <Button
+            variant="danger"
             onClick={() => {
               if (window.confirm("Reset the game? Your save will be deleted.")) void resetGame();
             }}
             testId="reset-save"
+            full
           >
             Reset
-          </NeonButton>
+          </Button>
           <input
             ref={fileRef}
             type="file"
@@ -296,9 +321,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         </div>
       </Section>
       <Section title="About">
-        <p className="text-xs text-white/60">NEON HQ is a game. All money and workers are fictional.</p>
+        <p className="text-sm text-ink2">NEON HQ is a game. All money and workers are fictional.</p>
       </Section>
     </Panel>
   );
 }
-

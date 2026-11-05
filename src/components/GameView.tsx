@@ -15,6 +15,9 @@ import ChatPanel from "./panels/ChatPanel";
 import SoundDirector from "./SoundDirector";
 import Tutorial from "./Tutorial";
 import { advanceMeeting, MEETING_LINE_INTERVAL_MS, workerTextTick } from "@/game/aiStore";
+import { play } from "@/lib/sound";
+import { Icon, type IconName } from "@/ui/icons";
+import { T } from "@/ui/tokens";
 
 const AUTOSAVE_MS = 10_000;
 
@@ -110,14 +113,31 @@ function FullscreenButton() {
   );
   if (!supported) return null;
   return (
+    <IconButton
+      icon="fullscreen"
+      label={on ? "Exit fullscreen" : "Fullscreen"}
+      pressed={on}
+      testId="fullscreen"
+      onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => undefined)}
+    />
+  );
+}
+
+function IconButton({ icon, label, onClick, pressed, testId, color }: { icon: IconName; label: string; onClick: () => void; pressed?: boolean; testId?: string; color?: string }) {
+  return (
     <button
       type="button"
-      onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => undefined)}
-      aria-label={on ? "Exit fullscreen" : "Fullscreen"}
-      data-testid="fullscreen"
-      className="flex h-8 w-9 items-center justify-center rounded border border-white/15 bg-ink/80 text-base text-white/70"
+      onClick={() => {
+        play("click");
+        onClick();
+      }}
+      aria-label={label}
+      aria-pressed={pressed}
+      data-testid={testId}
+      className="pressable flex h-11 w-11 items-center justify-center rounded-button border border-line bg-bg/80 backdrop-blur-[2px]"
+      style={{ color: color ?? T.text2, ["--glow" as string]: color ?? T.cyan }}
     >
-      {on ? "🗗" : "⛶"}
+      <Icon name={icon} size={16} />
     </button>
   );
 }
@@ -130,48 +150,34 @@ function TopControls() {
   const setSetting = useGame((s) => s.setSetting);
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between p-2">
-      <div className="pointer-events-auto flex overflow-hidden rounded border border-white/15 bg-ink/80">
+      <div className="pointer-events-auto flex overflow-hidden rounded-button border border-line bg-bg/80 backdrop-blur-[2px]">
         {SPEEDS.map((sp) => (
           <button
             key={sp}
             type="button"
-            onClick={() => setSpeed(sp)}
+            onClick={() => {
+              play("click");
+              setSpeed(sp);
+            }}
             aria-label={sp === 0 ? "Pause" : `Speed ${sp}x`}
             aria-pressed={speed === sp}
             data-testid={`speed-${sp}`}
-            className={`h-8 min-w-9 px-2 font-pixel text-base ${speed === sp ? "bg-cyan/20 text-cyan" : "text-white/55"}`}
+            className="pressable flex h-11 min-w-11 items-center justify-center px-2 font-pixel text-lg"
+            style={{ color: speed === sp ? T.cyan : T.text2, background: speed === sp ? `color-mix(in srgb, ${T.cyan} 14%, transparent)` : undefined }}
           >
             {sp === 0 ? "❚❚" : `${sp}x`}
           </button>
         ))}
       </div>
-      <div className="pointer-events-auto flex gap-1.5">
+      <div className="pointer-events-auto flex gap-2">
         <FullscreenButton />
-        <button
-          type="button"
-          onClick={() => setSetting("sound", !sound)}
-          aria-label={sound ? "Mute sound" : "Unmute sound"}
-          aria-pressed={!sound}
-          data-testid="mute"
-          className="flex h-8 w-9 items-center justify-center rounded border border-white/15 bg-ink/80 text-base text-white/70"
-        >
-          {sound ? "🔊" : "🔇"}
-        </button>
-        <button
-          type="button"
-          onClick={() => openPanel({ id: "settings" })}
-          aria-label="Settings"
-          data-testid="open-settings"
-          className="flex h-8 w-9 items-center justify-center rounded border border-white/15 bg-ink/80 text-lg text-white/70"
-        >
-          ⚙
-        </button>
+        <IconButton icon={sound ? "sound" : "mute"} label={sound ? "Mute sound" : "Unmute sound"} pressed={!sound} testId="mute" onClick={() => setSetting("sound", !sound)} />
+        <IconButton icon="settings" label="Settings" testId="open-settings" onClick={() => openPanel({ id: "settings" })} />
       </div>
     </div>
   );
 }
 
-/** Everything on screen while playing. Loaded as its own chunk after the intro. */
 /** Size of an element, kept up to date. */
 function useHeight(ref: React.RefObject<HTMLElement | null>): number {
   const [h, setH] = useState(0);
@@ -198,7 +204,7 @@ export default function GameView() {
 
   // The building fills the whole screen; the HUD and bottom bar float over it.
   return (
-    <main className="relative h-dvh overflow-hidden bg-ink text-white" data-testid="game">
+    <main className="relative h-dvh overflow-hidden bg-bg text-ink" data-testid="game">
       <GameCanvas insets={insets} />
       <div className="vignette pointer-events-none absolute inset-0" />
       {scanlines && <div className="scanlines absolute inset-0" data-testid="scanlines" />}
