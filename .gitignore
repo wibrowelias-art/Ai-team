@@ -47,3 +47,6 @@ next-env.d.ts
 
 # balance report
 balance-report.txt
+
+# deploy bundle built with git archive (see DEPLOY.md)
+neon-hq.zip
