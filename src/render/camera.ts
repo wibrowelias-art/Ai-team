@@ -58,10 +58,20 @@ export function panBy(cam: Camera, view: View, world: WorldSize, dxScreen: numbe
   return clampCamera({ ...cam, x: cam.x - dxScreen / cam.zoom, y: cam.y - dyScreen / cam.zoom }, view, world);
 }
 
-/** Start view: fit a focus band (the building) instead of the whole world, centered on it. */
-export function initialCamera(view: View, world: WorldSize, focus?: { y0: number; y1: number }): Camera {
+/** Start view: fit the building (a vertical band and a horizontal span), centered on it. */
+export function initialCamera(
+  view: View,
+  world: WorldSize,
+  focus?: { y0: number; y1: number },
+  span?: { x0: number; x1: number },
+  insets: { top: number; bottom: number } = { top: 0, bottom: 0 },
+): Camera {
   if (!focus) return clampCamera({ x: world.w / 2, y: world.h / 2, zoom: fitZoom(view, world) }, view, world);
-  const h = focus.y1 - focus.y0;
-  const zoom = Math.min(view.w / (world.w - 16), view.h / h);
-  return clampCamera({ x: world.w / 2, y: (focus.y0 + focus.y1) / 2, zoom }, view, world);
+  const x0 = span?.x0 ?? 8;
+  const x1 = span?.x1 ?? world.w - 8;
+  const usableH = Math.max(1, view.h - insets.top - insets.bottom);
+  const zoom = Math.min(view.w / (x1 - x0), usableH / (focus.y1 - focus.y0));
+  // Center the band in the area between the HUD and the bottom bar.
+  const shift = (insets.top - insets.bottom) / 2 / zoom;
+  return clampCamera({ x: (x0 + x1) / 2, y: (focus.y0 + focus.y1) / 2 - shift, zoom }, view, world);
 }

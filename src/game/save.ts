@@ -1,3 +1,4 @@
+import { findRoom, ROOM_DEFS, spotX } from "./building";
 import { FOCUS_ROOM } from "./business";
 import { SAVE_VERSION, START_MINUTE } from "./constants";
 import { CREW_SEEDS } from "./crew";
@@ -94,6 +95,20 @@ export function migrate(input: GameState): GameState {
   } else {
     s.economy = { ...newEconomy(dayOf(s.minutes)), ...s.economy };
     s.products = Array.isArray(input.products) ? input.products : [];
+  }
+  // v2 → v3: three rooms per floor become four (a new empty slot on the far left of every floor).
+  if ((input.version ?? 1) < 3 && !s.building.rooms.some((r) => r.type === "EMPTY") && s.building.rooms.every((r) => r.col <= 2)) {
+    const rooms = s.building.rooms.map((r) => ({ ...r, col: r.col + 1 }));
+    for (let f = 0; f < s.building.floors; f++) rooms.push({ id: `slot_m${f}`, type: "EMPTY", floor: f, col: 0, locked: true, level: 0 });
+    s.building = { ...s.building, rooms };
+    // Room positions moved: put everyone back at their spot.
+    s.workers = s.workers.map((w) => {
+      const room = (w.target && findRoom(s.building, w.target.roomId)) || findRoom(s.building, w.homeRoom);
+      if (!room) return w;
+      const spot = Math.min(w.target?.spot ?? 0, ROOM_DEFS[room.type].spots.length - 1);
+      const purpose = w.target?.purpose === "meeting" || w.target?.purpose === "walking" ? "visiting" : (w.target?.purpose ?? "working");
+      return { ...w, floor: room.floor, x: spotX(room, spot), y: 0, route: [], target: { roomId: room.id, spot, purpose }, activity: purpose, timer: 5 };
+    });
   }
   // Ledgers from older saves lack newer cost kinds.
   const blank = newEconomy(1).today.costs;

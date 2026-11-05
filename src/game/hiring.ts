@@ -1,7 +1,8 @@
 /** Hiring and firing. Candidates are generated per game day. */
 import { findRoom } from "./building";
 import { FOCUS_ROOM } from "./business";
-import { COLORS } from "./constants";
+import { COLORS, COLUMNS } from "./constants";
+import { BASE_CREW, maxCrew } from "./upgrades";
 import { clamp, draftOf, log, nextId, say, spend } from "./draft";
 import { fairSalary } from "./economy";
 import { removeWorker } from "./events";
@@ -9,7 +10,8 @@ import { pickSpot, sendWorker, WORK_KINDS, type Rng } from "./movement";
 import { dayOf } from "./time";
 import type { Accessory, Candidate, Focus, GameState, HairStyle, Worker } from "./types";
 
-export const MAX_CREW = 12;
+/** @deprecated use maxCrew(state): offices add room for more. */
+export const MAX_CREW = BASE_CREW;
 export const REROLL_COST = 100;
 
 const FIRST = ["Nova", "Rex", "Kai", "Juno", "Ziggy", "Mika", "Orion", "Pixel", "Sasha", "Remy", "Tao", "Vex", "Luna", "Ash", "Coda", "Iris", "Bo", "Neo"];
@@ -128,7 +130,8 @@ export function rerollCandidates(state: GameState, rng: Rng): Result {
 export function hire(state: GameState, candidateId: string, rng: Rng): Result {
   const c = state.candidates.find((x) => x.id === candidateId);
   if (!c) return { state, error: "That candidate is gone." };
-  if (state.workers.length >= MAX_CREW) return { state, error: `The building fits ${MAX_CREW} people. Fire someone first.` };
+  const cap = maxCrew(state);
+  if (state.workers.length >= cap) return { state, error: `The building fits ${cap} people. Build an Open Office or fire someone.` };
   if (state.cash < c.salary) return { state, error: `Not enough cash for ${c.name}'s $${c.salary} signing bonus.` };
   const s = draftOf(state);
   const home = findRoom(s.building, FOCUS_ROOM[c.focus]) ?? s.building.rooms[0];
@@ -154,7 +157,7 @@ export function hire(state: GameState, candidateId: string, rng: Rng): Result {
     spent: 0,
     // Arrives on the ground floor by the entrance and walks to their desk.
     floor: s.building.floors - 1,
-    x: 14,
+    x: COLUMNS[0].x + 4,
     y: 0,
     facing: 1,
     route: [],

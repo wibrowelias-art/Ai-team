@@ -1,5 +1,5 @@
 import { FOCUS_ROOM } from "./business";
-import { findRoom, initialBuilding, ROOM_DEFS, roomByType, spotX } from "./building";
+import { findRoom, initialBuilding, REST_ROOM_TYPES, ROOM_DEFS, spotX } from "./building";
 import { CYCLES_PER_DAY, SAVE_VERSION, START_CASH, START_MINUTE, type ThemeId } from "./constants";
 import { createWorker, CREW_SEEDS } from "./crew";
 import { bubble, clamp, log, ownEconomy } from "./draft";
@@ -7,7 +7,7 @@ import { newEconomy, runCycle, runDay } from "./economy";
 import { moveWorker, pickSpot, REST_KINDS, sendWorker, WORK_KINDS, type Rng } from "./movement";
 import { starterProducts } from "./products";
 import { cycleIndex, dayOf } from "./time";
-import type { GameState, Worker } from "./types";
+import type { GameState, RoomSlot, Worker } from "./types";
 import { effects, type Effects } from "./upgrades";
 
 export { isRiding, moveWorker, pickSpot, REST_KINDS, sendWorker, WORK_KINDS } from "./movement";
@@ -78,14 +78,12 @@ function decide(w: Worker, s: GameState, rng: Rng): void {
   const b = s.building;
   const now = s.minutes;
   const home = findRoom(b, w.homeRoom);
-  const chill = roomByType(b, "CHILL");
-
-  if (w.energy < 25 && w.activity !== "resting" && chill) {
-    const spot = pickSpot(chill, REST_KINDS, s.workers, rng, w.id);
-    if (spot !== null) {
-      sendWorker(w, chill, spot, "resting");
+  if (w.energy < 25 && w.activity !== "resting") {
+    const rest = pickRestRoom(s, w, rng);
+    if (rest) {
+      sendWorker(w, rest.room, rest.spot, "resting");
       bubble(w, "tired", now, 10);
-      log(s, `${w.name} is wiped out and heads to the Chill Bar.`, "info");
+      log(s, `${w.name} is wiped out and heads to the ${ROOM_DEFS[rest.room.type].name}.`, "info");
       return;
     }
   }
@@ -120,6 +118,18 @@ function decide(w: Worker, s: GameState, rng: Rng): void {
   w.activity = "working";
   w.timer = 40 + rng() * 80;
   if (rng() < 0.25 && !w.bubble) bubble(w, "idea", now, 6);
+}
+
+/** A rest room with a free rest spot, preferring the Chill Bar. */
+function pickRestRoom(s: GameState, w: Worker, rng: Rng): { room: RoomSlot; spot: number } | null {
+  const rooms = s.building.rooms.filter((r) => !r.locked && REST_ROOM_TYPES.includes(r.type));
+  const taken = new Set(s.workers.filter((o) => o.id !== w.id && o.target).map((o) => `${o.target!.roomId}:${o.target!.spot}`));
+  const free = rooms.filter((r) => ROOM_DEFS[r.type].spots.some((sp, i) => REST_KINDS.includes(sp.kind) && !taken.has(`${r.id}:${i}`)));
+  const pool = free.length ? free : rooms;
+  if (pool.length === 0) return null;
+  const room = pool.find((r) => r.type === "CHILL") && rng() < 0.5 ? pool.find((r) => r.type === "CHILL")! : pool[Math.floor(rng() * pool.length)];
+  const spot = pickSpot(room, REST_KINDS, s.workers, rng, w.id);
+  return spot === null ? null : { room, spot };
 }
 
 function arrive(w: Worker, s: GameState, rng: Rng): void {

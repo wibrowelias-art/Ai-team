@@ -402,7 +402,7 @@ describe("save migration", () => {
     };
     const g = deserialize(JSON.stringify(v1))!;
     expect(g).not.toBeNull();
-    expect(g.version).toBe(2);
+    expect(g.version).toBe(3);
     expect(g.economy.budgets.shop).toBeGreaterThan(0);
     expect(g.products.length).toBeGreaterThan(0);
     expect(worker(g, "pham").focus).toBe("music");

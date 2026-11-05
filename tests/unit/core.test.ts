@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildingBand, findRoom, floorBase, hitRoom, initialBuilding, roomAt, roomRect, ROOM_DEFS, spotX, worldHeight } from "@/game/building";
+import { buildingBand, buildingSpan, findRoom, floorBase, hitRoom, initialBuilding, roomAt, roomRect, ROOM_DEFS, spotX, worldHeight } from "@/game/building";
 import { COLUMNS, FLOOR_H, SHAFT_CENTER_X, WORLD_W } from "@/game/constants";
 import { planRoute, routeLength } from "@/game/pathfinding";
 import { clockOf, dayOf, formatDuration, formatMoney, minutesToNextCycle } from "@/game/time";
@@ -151,10 +151,12 @@ describe("camera", () => {
     expect(next.x).toBeCloseTo(120);
   });
 
-  it("fits the building width on a phone", () => {
-    const cam = initialCamera(view, world, buildingBand(3));
-    expect(cam.zoom * (WORLD_W - 16)).toBeLessThanOrEqual(view.w + 0.001);
-    expect(cam.zoom).toBeGreaterThan(1.4);
+  it("fits the building (not the whole city) on a phone", () => {
+    const span = buildingSpan();
+    const cam = initialCamera(view, world, buildingBand(3), span);
+    expect(cam.zoom * (span.x1 - span.x0)).toBeLessThanOrEqual(view.w + 0.001);
+    expect(cam.zoom).toBeGreaterThan(1.2);
+    expect(cam.x).toBeCloseTo((span.x0 + span.x1) / 2, 0);
   });
 });
 

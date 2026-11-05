@@ -134,7 +134,7 @@ export function runCycle(s: GameState, rng: Rng, opts: CycleOptions): CycleRepor
   // Shop: every live product sells a little, pushed by shop workers.
   const S = sumOut("shop");
   const push = 0.7 + 0.3 * Math.min(1.5, S);
-  const shopCommon = common("shop") * push;
+  const shopCommon = common("shop") * push * fx.shopIncome;
   for (const p of s.products) {
     if (p.stage !== "done" || PRODUCT_INFO[p.type].business !== "shop") continue;
     const age = (now - (p.liveAt ?? now)) / (24 * 60);

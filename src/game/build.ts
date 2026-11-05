@@ -1,8 +1,20 @@
 /** Build rooms, add floors, upgrade rooms and buy shop upgrades. */
 import { findRoom, ROOM_DEFS } from "./building";
-import { draftOf, log, spend } from "./draft";
-import type { GameState, RoomSlot, UpgradeId } from "./types";
-import { ADD_FLOOR_COST, BUILD_COST, MAX_FLOORS, MAX_ROOM_LEVEL, MAX_UPGRADE_LEVEL, roomUpgradeCost, SHOP_UPGRADES, upgradeCost } from "./upgrades";
+import { COLS } from "./constants";
+import { draftOf, log, nextId, spend } from "./draft";
+import type { GameState, RoomSlot, RoomType, UpgradeId } from "./types";
+import {
+  addFloorCost,
+  BUILD_COST,
+  CATALOG,
+  MAX_FLOORS,
+  MAX_ROOM_LEVEL,
+  MAX_UPGRADE_LEVEL,
+  roomUpgradeCost,
+  SHOP_UPGRADES,
+  UNIQUE_ROOMS,
+  upgradeCost,
+} from "./upgrades";
 
 export interface BuildResult {
   state: GameState;
@@ -11,18 +23,41 @@ export interface BuildResult {
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 
-export function buildRoom(state: GameState, roomId: string): BuildResult {
+/**
+ * Build a room. Pre-typed locked slots (e.g. the Marketing Lab) take their own type;
+ * empty slots need the type to build, chosen from the catalog.
+ */
+export function buildRoom(state: GameState, roomId: string, type?: RoomType): BuildResult {
   const room = findRoom(state.building, roomId);
   if (!room) return { state, error: "Unknown room." };
   if (!room.locked) return { state, error: "That room is already built." };
-  const cost = BUILD_COST[room.type];
+  const target: RoomType | undefined = room.type === "EMPTY" ? type : room.type;
+  if (!target || target === "EMPTY") return { state, error: "Pick what to build here." };
+  if (room.type === "EMPTY" && !CATALOG.includes(target)) return { state, error: "That room can't be built here." };
+  if (room.type !== "EMPTY" && type && type !== room.type) return { state, error: "This slot is reserved." };
+  // Unique rooms: one per building, counting a reserved (still locked) slot of that type too.
+  if (UNIQUE_ROOMS.includes(target) && state.building.rooms.some((r) => r.type === target && r.id !== roomId)) {
+    return { state, error: `You already have a ${ROOM_DEFS[target].name} (or a reserved spot for one).` };
+  }
+  const cost = BUILD_COST[target];
   if (cost === undefined) return { state, error: "That room can't be built." };
-  if (state.cash < cost) return { state, error: `Building the ${ROOM_DEFS[room.type].name} costs ${money(cost)}.` };
+  if (state.cash < cost) return { state, error: `Building the ${ROOM_DEFS[target].name} costs ${money(cost)}.` };
   const s = draftOf(state);
   spend(s, "upgrades", cost);
-  s.building = { ...s.building, rooms: s.building.rooms.map((r) => (r.id === roomId ? { ...r, locked: false, level: 1 } : r)) };
-  log(s, `🏗️ Built the ${ROOM_DEFS[room.type].name} for ${money(cost)}.`, "good");
+  s.building = {
+    ...s.building,
+    rooms: s.building.rooms.map((r) => (r.id === roomId ? { ...r, type: target, locked: false, level: 1 } : r)),
+  };
+  log(s, `🏗️ Built the ${ROOM_DEFS[target].name} for ${money(cost)}.`, "good");
   return { state: s, error: null };
+}
+
+/** Room types that can go in a slot right now (for the build menu). */
+export function buildOptions(state: GameState, roomId: string): RoomType[] {
+  const room = findRoom(state.building, roomId);
+  if (!room || !room.locked) return [];
+  if (room.type !== "EMPTY") return [room.type];
+  return CATALOG.filter((t) => !(UNIQUE_ROOMS.includes(t) && state.building.rooms.some((r) => r.type === t)));
 }
 
 export function upgradeRoom(state: GameState, roomId: string): BuildResult {
@@ -38,17 +73,21 @@ export function upgradeRoom(state: GameState, roomId: string): BuildResult {
   return { state: s, error: null };
 }
 
-/** New floors go on top: everything else moves down one floor index. */
+/** New floors go on top with four empty slots: everything else moves down one floor index. */
 export function addFloor(state: GameState): BuildResult {
   if (state.building.floors >= MAX_FLOORS) return { state, error: `The permit allows ${MAX_FLOORS} floors.` };
-  if (state.cash < ADD_FLOOR_COST) return { state, error: `A new floor costs ${money(ADD_FLOOR_COST)}.` };
+  const cost = addFloorCost(state.building.floors);
+  if (state.cash < cost) return { state, error: `A new floor costs ${money(cost)}.` };
   const s = draftOf(state);
-  spend(s, "upgrades", ADD_FLOOR_COST);
-  const newRooms: RoomSlot[] = [
-    { id: "rooftop_lounge", type: "ROOFTOP_LOUNGE", floor: 0, col: 0, locked: true, level: 0 },
-    { id: "trading_desk", type: "TRADING_DESK", floor: 0, col: 1, locked: true, level: 0 },
-    { id: "vault", type: "VAULT", floor: 0, col: 2, locked: true, level: 0 },
-  ].filter((r) => !s.building.rooms.some((x) => x.id === r.id)) as RoomSlot[];
+  spend(s, "upgrades", cost);
+  const newRooms: RoomSlot[] = Array.from({ length: COLS }, (_, col) => ({
+    id: nextId(s, "slot"),
+    type: "EMPTY" as const,
+    floor: 0,
+    col,
+    locked: true,
+    level: 0,
+  }));
   s.building = {
     floors: s.building.floors + 1,
     rooms: [...newRooms, ...s.building.rooms.map((r) => ({ ...r, floor: r.floor + 1 }))],
@@ -57,7 +96,7 @@ export function addFloor(state: GameState): BuildResult {
     w.floor += 1;
     w.route = w.route.map((st) => (st.kind === "ride" ? { ...st, toFloor: st.toFloor + 1 } : st));
   }
-  log(s, `🏗️ Added a new top floor for ${money(ADD_FLOOR_COST)}. Three new rooms are ready to build.`, "good");
+  log(s, `🏗️ Added floor ${s.building.floors} for ${money(cost)}. Four new slots are ready to build.`, "good");
   return { state: s, error: null };
 }
 

@@ -12,7 +12,16 @@ export type RoomType =
   | "MARKETING_LAB"
   | "VAULT"
   | "ROOFTOP_LOUNGE"
-  | "TRADING_DESK";
+  | "TRADING_DESK"
+  | "GYM"
+  | "CAFE"
+  | "NAP_PODS"
+  | "OFFICE"
+  | "DATA_CENTER"
+  | "PODCAST_BOOTH"
+  | "MERCH_STORE"
+  /** an unbuilt slot: the player picks what goes here */
+  | "EMPTY";
 
 export type SpotKind = "desk" | "chair" | "bench" | "couch" | "pool" | "arcade" | "bar" | "stand" | "rack";
 

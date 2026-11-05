@@ -22,22 +22,29 @@ export const THEMES: Record<ThemeId, { label: string; trim: string; trimDark: st
   purple: { label: "Purple", trim: COLORS.purple, trimDark: "#33205e", wall: "#161226" },
 };
 
-/** World layout (art pixels). Floor 0 is the top floor. */
-export const WORLD_W = 260;
-export const BUILDING_X = 10;
-export const BUILDING_W = 240;
+/** World layout (art pixels). Floor 0 is the top floor. The city fills CITY_MARGIN on each side. */
+export const CITY_MARGIN = 240;
+export const ROOM_W = 64;
+export const SHAFT_W = 20;
+export const BUILDING_X = CITY_MARGIN;
+export const BUILDING_W = 4 * ROOM_W + SHAFT_W + 4; // 2px outer walls
+export const WORLD_W = BUILDING_X * 2 + BUILDING_W;
 export const ROOF_H = 104; // sky + roof sign above the first floor
 export const FLOOR_H = 56; // slab + interior
 export const SLAB_H = 6;
 export const GROUND_H = 190;
+/** Rooms per floor. */
+export const COLS = 4;
 
-/** Columns on each floor. Column 0 | elevator shaft | column 1 | column 2. */
+const IN = BUILDING_X + 2;
+/** Columns on each floor: col 0 | col 1 | elevator shaft | col 2 | col 3. */
 export const COLUMNS = [
-  { x: 12, w: 72 },
-  { x: 106, w: 72 },
-  { x: 178, w: 70 },
+  { x: IN, w: ROOM_W },
+  { x: IN + ROOM_W, w: ROOM_W },
+  { x: IN + 2 * ROOM_W + SHAFT_W, w: ROOM_W },
+  { x: IN + 3 * ROOM_W + SHAFT_W, w: ROOM_W },
 ] as const;
-export const SHAFT = { x: 85, w: 20 } as const;
+export const SHAFT = { x: IN + 2 * ROOM_W, w: SHAFT_W } as const;
 export const SHAFT_CENTER_X = SHAFT.x + SHAFT.w / 2;
 
 /** Worker sprite size. */
@@ -56,7 +63,7 @@ export const WALK_SPEED = 22; // px / game minute
 export const ELEVATOR_SPEED = 40; // px / game minute
 
 export const START_CASH = 5000;
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const SPEEDS = [0, 1, 2, 5] as const;
 export type Speed = (typeof SPEEDS)[number];
 

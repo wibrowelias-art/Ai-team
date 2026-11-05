@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addFloor, buildRoom, buyUpgrade, upgradeRoom } from "@/game/build";
+import { addFloor, buildOptions, buildRoom, buyUpgrade, upgradeRoom } from "@/game/build";
 import { findRoom, floorBase, roomRect } from "@/game/building";
 import { draftOf } from "@/game/draft";
 import { runCycle, runDay, workerOutput } from "@/game/economy";
@@ -8,7 +8,7 @@ import { ensureCandidates, fire, hire, MAX_CREW, rerollCandidates } from "@/game
 import { deserialize } from "@/game/save";
 import { mulberry32, newGameState, step } from "@/game/sim";
 import type { GameState } from "@/game/types";
-import { ADD_FLOOR_COST, BUILD_COST, effects, MAX_FLOORS, roomUpgradeCost, SHOP_UPGRADES } from "@/game/upgrades";
+import { ADD_FLOOR_COST, addFloorCost, BUILD_COST, effects, MAX_FLOORS, maxCrew, roomUpgradeCost, SHOP_UPGRADES } from "@/game/upgrades";
 
 const rng = () => mulberry32(5);
 const fresh = (cash = 50_000): GameState => ({ ...newGameState("Test Co", "cyan", mulberry32(1)), cash });
@@ -52,7 +52,7 @@ describe("building rooms", () => {
 });
 
 describe("adding a floor", () => {
-  it("adds a top floor with three locked rooms and shifts everything down", () => {
+  it("adds a top floor with four empty slots and shifts everything down", () => {
     const g = fresh();
     const before = g.workers.map((w) => ({ id: w.id, floor: w.floor }));
     const factoryBefore = findRoom(g.building, "factory")!.floor;
@@ -62,16 +62,31 @@ describe("adding a floor", () => {
     expect(s.building.floors).toBe(4);
     expect(s.cash).toBe(g.cash - ADD_FLOOR_COST);
     const top = s.building.rooms.filter((x) => x.floor === 0);
-    expect(top.map((x) => x.type).sort()).toEqual(["ROOFTOP_LOUNGE", "TRADING_DESK", "VAULT"]);
-    expect(top.every((x) => x.locked)).toBe(true);
+    expect(top).toHaveLength(4);
+    expect(top.every((x) => x.type === "EMPTY" && x.locked)).toBe(true);
+    expect(new Set(top.map((x) => x.id)).size).toBe(4);
     expect(findRoom(s.building, "factory")!.floor).toBe(factoryBefore + 1);
     for (const b of before) expect(worker(s, b.id).floor).toBe(b.floor + 1);
-    expect(addFloor(s).error).toMatch(String(MAX_FLOORS));
+  });
+
+  it("grows to 8 floors with rising costs", () => {
+    let g = fresh(1e7);
+    const costs: number[] = [];
+    while (g.building.floors < MAX_FLOORS) {
+      const before = g.cash;
+      g = addFloor(g).state;
+      costs.push(before - g.cash);
+    }
+    expect(g.building.floors).toBe(8);
+    expect(g.building.rooms).toHaveLength(32);
+    expect(costs).toEqual([3, 4, 5, 6, 7].map(addFloorCost));
+    for (let i = 1; i < costs.length; i++) expect(costs[i]).toBeGreaterThan(costs[i - 1]);
+    expect(addFloor(g).error).toMatch("8");
   });
 
   it("keeps workers moving correctly after the floor change", () => {
     let g = addFloor(fresh()).state;
-    g = buildRoom(g, "rooftop_lounge").state;
+    g = buildRoom(g, "slot_a", "ROOFTOP_LOUNGE").state;
     for (let i = 0; i < 6 * 60; i++) g = step(g, 1, mulberry32(i));
     for (const w of g.workers) {
       expect(w.floor).toBeGreaterThanOrEqual(0);
@@ -134,7 +149,7 @@ describe("shop upgrades and room effects", () => {
   });
 
   it("the Vault halves event costs", () => {
-    const withVault = buildRoom(addFloor(fresh()).state, "vault").state;
+    const withVault = buildRoom(fresh(), "slot_a", "VAULT").state;
     const d = draftOf(withVault);
     const ev = triggerEvent(d, "outage", rng())!;
     const cash = d.cash;
@@ -144,7 +159,7 @@ describe("shop upgrades and room effects", () => {
 
   it("the Trading Desk pays interest and the Rooftop Lounge lifts mood daily", () => {
     let g = addFloor(fresh(20_000)).state;
-    g = buildRoom(buildRoom(g, "trading_desk").state, "rooftop_lounge").state;
+    g = buildRoom(buildRoom(g, "slot_a", "TRADING_DESK").state, "slot_b", "ROOFTOP_LOUNGE").state;
     const d = draftOf(g);
     const other = d.economy.otherIncome;
     d.workers.forEach((w) => (w.mood = 50));
@@ -155,6 +170,61 @@ describe("shop upgrades and room effects", () => {
     expect(d.economy.otherIncome - other).toBe(Math.round(Math.min(400, afterPayroll * 0.004)));
     expect(d.log.some((l) => l.text.includes("Trading Desk"))).toBe(true);
     expect(d.workers[0].mood).toBeGreaterThan(moodBefore[0]);
+  });
+});
+
+describe("empty slots and the room catalog", () => {
+  it("needs a room type, then builds it", () => {
+    const g = fresh();
+    expect(buildRoom(g, "slot_a").error).toMatch(/Pick/);
+    const r = buildRoom(g, "slot_a", "GYM");
+    expect(r.error).toBeNull();
+    const slot = findRoom(r.state.building, "slot_a")!;
+    expect(slot.type).toBe("GYM");
+    expect(slot.locked).toBe(false);
+    expect(r.state.cash).toBe(g.cash - BUILD_COST.GYM!);
+  });
+
+  it("allows stacking common rooms but only one of each unique room", () => {
+    let g = fresh(1e6);
+    g = buildRoom(g, "slot_a", "CAFE").state;
+    g = buildRoom(g, "slot_b", "CAFE").state;
+    expect(g.building.rooms.filter((r) => r.type === "CAFE")).toHaveLength(2);
+    g = buildRoom(g, "slot_c", "VAULT").state;
+    const more = addFloor(g).state;
+    const slot = more.building.rooms.find((r) => r.type === "EMPTY")!;
+    expect(buildRoom(more, slot.id, "VAULT").error).toMatch(/already/);
+    // Reserved slots count too: no second Marketing Lab while its own slot waits.
+    expect(buildRoom(more, slot.id, "MARKETING_LAB").error).toMatch(/already/);
+    expect(buildOptions(more, slot.id)).not.toContain("VAULT");
+    expect(buildOptions(more, slot.id)).toContain("CAFE");
+    expect(buildOptions(more, "marketing_lab")).toEqual(["MARKETING_LAB"]);
+  });
+
+  it("refuses types outside the catalog", () => {
+    expect(buildRoom(fresh(), "slot_a", "COMMAND").error).toMatch(/can't/);
+  });
+
+  it("stacking rooms stack their effects", () => {
+    const one = buildRoom(fresh(1e6), "slot_a", "GYM").state;
+    const two = buildRoom(one, "slot_b", "GYM").state;
+    expect(effects(two).energyDrain).toBeLessThan(effects(one).energyDrain);
+    expect(effects(one).energyDrain).toBeLessThan(effects(fresh()).energyDrain);
+    expect(effects(buildRoom(fresh(), "slot_a", "MERCH_STORE").state).shopIncome).toBeCloseTo(1.12);
+  });
+
+  it("offices raise the crew limit", () => {
+    expect(maxCrew(fresh())).toBe(12);
+    expect(maxCrew(buildRoom(fresh(), "slot_a", "OFFICE").state)).toBe(15);
+  });
+
+  it("tired workers can rest in Nap Pods too", () => {
+    let g = buildRoom(fresh(), "slot_c", "NAP_PODS").state;
+    // Fill the Chill Bar so the pods are the only free rest room.
+    g = { ...g, workers: g.workers.map((w) => ({ ...w, energy: 5 })) };
+    g = step(g, 2, mulberry32(4));
+    const resting = g.workers.filter((w) => w.target?.purpose === "resting").map((w) => w.target!.roomId);
+    expect(resting).toContain("slot_c");
   });
 });
 
@@ -233,5 +303,35 @@ describe("hiring and firing", () => {
     expect(back.workers).toHaveLength(8);
     expect(back.building.floors).toBe(4);
     expect(back.upgrades.neon_sign).toBe(1);
+  });
+});
+
+describe("v2 → v3 migration", () => {
+  it("turns 3-room floors into 4-room floors and re-seats everyone", () => {
+    const g = fresh();
+    // Build a v2-shaped save: no empty slots, columns 0-2.
+    const v2 = {
+      ...g,
+      version: 2,
+      building: { floors: 3, rooms: g.building.rooms.filter((r) => r.type !== "EMPTY").map((r) => ({ ...r, col: r.col - 1 })) },
+    };
+    const back = deserialize(JSON.stringify(v2))!;
+    expect(back.version).toBe(3);
+    expect(back.building.rooms).toHaveLength(12);
+    for (let f = 0; f < 3; f++) {
+      const cols = back.building.rooms.filter((r) => r.floor === f).map((r) => r.col).sort();
+      expect(cols).toEqual([0, 1, 2, 3]);
+      expect(back.building.rooms.find((r) => r.floor === f && r.col === 0)!.type).toBe("EMPTY");
+    }
+    expect(findRoom(back.building, "command")!.col).toBe(1);
+    for (const w of back.workers) {
+      const room = findRoom(back.building, w.target!.roomId)!;
+      const rect = roomRect(room);
+      expect(w.x).toBeGreaterThanOrEqual(rect.x);
+      expect(w.x).toBeLessThan(rect.x + rect.w);
+      expect(w.floor).toBe(room.floor);
+    }
+    // And the game keeps running.
+    expect(step(back, 120, mulberry32(2)).workers).toHaveLength(7);
   });
 });
