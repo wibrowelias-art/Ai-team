@@ -118,7 +118,12 @@ Set `GEMINI_API_KEY` in `.env.local` (see `.env.example`). Without it, every wor
 - **Lighthouse (mobile, production build)**: Performance 99, Accessibility 100, Best Practices 100, SEO 100. FCP/LCP 0.8 s, TBT ~125 ms, CLS 0.
 - **Fast intro**: the intro is server-rendered. The in-game UI is a separate chunk, prefetched while you read the intro. An inline script shows returning players a splash before first paint instead of flashing the intro.
 - **Frame rate under 4x CPU throttling** (headless Chromium, software rendering, 390x844 @2.6x): 236+ fps on Low, which Auto picks there. Unthrottled, High is capped at 60 fps by the display. JavaScript is under 1% of frame time; the cost is pixel fill, which the quality levels control.
-- **Layout QA**: automated checks at 360x640, 390x844, 430x932, 844x390, 768x1024 and 1440x900: no horizontal scroll, panels stay between the HUD and the bottom bar.
+- **Layout QA**: automated checks at 360x780, 390x844, 412x915, 430x932, 844x390, 768x1024 and 1440x900: no horizontal scroll, panels stay between the HUD and the bottom bar, every tap target is 44 px or larger.
+- **Code splitting**: the intro, the game UI, each panel group and the chat are separate chunks. Panels are warmed 1.5 s after the first frame.
+
+## Polish pass
+
+See `CHANGELOG.md` for the full list and `AUDIT.md` for the audit that drove it. Highlights: a design system (`src/ui/tokens.ts`, `src/ui/icons.tsx`), per-level room furniture and live wall screens, a six-frame walk cycle with coins and floaters, milestones with rewards, a daily report card, and workers who talk about real events and numbers.
 
 ## Deploy (Vercel)
 
@@ -144,3 +149,4 @@ The per-IP rate limit is in memory, so on Vercel each function instance counts s
 - [x] **Phase 2**: economy, cycles, businesses, Treasury, Revenue Bay chart, Factory kanban, events, offline progress, tests
 - [x] **Phase 3**: AI chat, actions, memories, meetings, worker-initiated messages
 - [x] **Phase 4**: build/upgrade system, hire and fire, polish, sound, tutorial, performance, mobile QA, deploy setup
+- [x] **2.5D world** and **polish pass** (design system, animation, milestones, report card, worker chatter)

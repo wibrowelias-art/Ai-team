@@ -306,7 +306,7 @@ export function Toasts() {
                 focusOn(w.x, floorBase(w.floor) - 8);
               }
             }}
-            className="panel-surface pointer-events-auto flex w-full max-w-sm animate-pop items-center gap-3 rounded-button px-3 py-2.5 text-left text-sm"
+            className="panel-surface pointer-events-auto flex min-h-11 w-full max-w-sm animate-pop items-center gap-3 rounded-button px-3 py-2.5 text-left text-sm"
             style={{ ["--accent" as string]: error ? T.red : T.cyan, color: error ? T.red : T.text }}
             data-testid={t.kind === "message" ? "toast-message" : "toast"}
           >

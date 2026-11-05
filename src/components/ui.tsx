@@ -176,10 +176,11 @@ export function Toggle({ label, value, onChange, testId, hint }: { label: string
           play("click");
           onChange(!value);
         }}
-        className="pressable relative h-8 w-14 shrink-0 rounded-full border transition-colors"
-        style={{ borderColor: value ? T.cyan : T.border, background: value ? `color-mix(in srgb, ${T.cyan} 25%, transparent)` : T.raised }}
+        className="pressable flex h-11 w-16 shrink-0 items-center justify-center"
       >
-        <span className="absolute top-1 h-5 w-5 rounded-full transition-all" style={{ left: value ? 30 : 4, background: value ? T.cyan : T.muted }} />
+        <span className="relative block h-8 w-14 rounded-full border transition-colors" style={{ borderColor: value ? T.cyan : T.border, background: value ? `color-mix(in srgb, ${T.cyan} 25%, transparent)` : T.raised }}>
+          <span className="absolute top-1 h-5 w-5 rounded-full transition-all" style={{ left: value ? 30 : 4, background: value ? T.cyan : T.muted }} />
+        </span>
       </button>
     </label>
   );
