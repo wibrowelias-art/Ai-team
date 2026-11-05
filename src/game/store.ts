@@ -8,7 +8,7 @@ import { GAME_MIN_PER_REAL_SEC, type Speed, type ThemeId } from "./constants";
 import { applyOffline, type AwaySummary } from "./offline";
 import { clearSave, saveGame } from "./save";
 import { newGameState, step } from "./sim";
-import type { BusinessId, Focus, GameState, MeetingLine, Settings, UpgradeId } from "./types";
+import type { BusinessId, Focus, GameState, MeetingLine, RoomType, Settings, UpgradeId } from "./types";
 
 /** Number of tutorial steps (see components/Tutorial.tsx). */
 export const TUTORIAL_STEPS = 5;
@@ -86,7 +86,7 @@ interface Store {
   assignMission: (workerId: string, templateId: string) => boolean;
   resolveEvent: (eventId: string, choice: number) => boolean;
 
-  buildRoom: (roomId: string) => boolean;
+  buildRoom: (roomId: string, type?: RoomType) => boolean;
   upgradeRoom: (roomId: string) => boolean;
   addFloor: () => boolean;
   buyUpgrade: (id: UpgradeId) => boolean;
@@ -197,7 +197,7 @@ export const useGame = create<Store>((set, get) => {
     assignMission: (workerId, templateId) => run((g) => A.assignMission(g, workerId, templateId)),
     resolveEvent: (eventId, choice) => run((g) => A.resolveEvent(g, eventId, choice)),
 
-    buildRoom: (roomId) => run((g) => B.buildRoom(g, roomId)),
+    buildRoom: (roomId, type) => run((g) => B.buildRoom(g, roomId, type)),
     upgradeRoom: (roomId) => run((g) => B.upgradeRoom(g, roomId)),
     addFloor: () => run((g) => B.addFloor(g)),
     buyUpgrade: (id) => run((g) => B.buyUpgrade(g, id)),

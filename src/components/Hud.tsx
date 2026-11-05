@@ -40,7 +40,7 @@ export default function Hud() {
 
   return (
     <header
-      className="relative z-30 grid min-h-11 shrink-0 grid-cols-6 px-[max(0px,calc((100%-52rem)/2))] py-1 border-b border-pink/40 bg-ink/95 shadow-[0_2px_16px_-4px_rgba(255,43,214,0.45)]"
+      className="relative z-30 grid min-h-11 shrink-0 grid-cols-6 px-[max(0px,calc((100%-52rem)/2))] py-1 border-b border-pink/30 bg-ink/70 backdrop-blur-[2px] shadow-[0_2px_16px_-4px_rgba(255,43,214,0.45)]"
       style={{ paddingTop: "calc(env(safe-area-inset-top) + 4px)" }}
       data-testid="hud"
     >

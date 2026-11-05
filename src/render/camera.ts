@@ -39,9 +39,12 @@ export function clampCamera(cam: Camera, view: View, world: WorldSize): Camera {
   const zoom = Math.max(minZoom(view, world), Math.min(MAX_ZOOM, cam.zoom));
   const halfW = view.w / 2 / zoom;
   const halfH = view.h / 2 / zoom;
-  // When the view is bigger than the world on an axis, lock to the center.
-  const x = halfW * 2 >= world.w ? world.w / 2 : Math.max(halfW, Math.min(world.w - halfW, cam.x));
-  const y = halfH * 2 >= world.h ? world.h / 2 : Math.max(halfH, Math.min(world.h - halfH, cam.y));
+  // When the view is bigger than the world on an axis, the world may sit anywhere inside the view
+  // (sky above and ground below are drawn past its edges); otherwise the view stays inside the world.
+  const axis = (v: number, half: number, size: number) =>
+    half * 2 >= size ? Math.max(size - half, Math.min(half, v)) : Math.max(half, Math.min(size - half, v));
+  const x = axis(cam.x, halfW, world.w);
+  const y = axis(cam.y, halfH, world.h);
   return { x, y, zoom };
 }
 

@@ -39,7 +39,7 @@ export default function Panel({ title, accent = "#22e6ff", onClose, children, te
   };
 
   return (
-    <div className="absolute inset-0 z-20 flex items-end md:items-stretch md:justify-end" data-testid={testId}>
+    <div className="pointer-events-auto absolute inset-0 z-20 flex items-end md:items-stretch md:justify-end" data-testid={testId}>
       <button type="button" aria-label="Close panel" className="absolute inset-0 animate-fade bg-black/40" onClick={onClose} />
       <section
         role="dialog"

@@ -92,8 +92,9 @@ Set `GEMINI_API_KEY` in `.env.local` (see `.env.example`). Without it, every wor
 ## Building, hiring and polish (Phase 4)
 
 - **Build** (Build panel or a room's panel):
-  - Locked rooms: Marketing Lab and Recording Studio ($2,500 each).
-  - A 4th floor ($6,000), added on top, with a Rooftop Lounge ($3,500), Trading Desk ($5,000) and Vault ($4,000).
+  - Reserved slots: Marketing Lab and Recording Studio ($2,500 each).
+  - Empty slots: pick from a catalog: Café, Gym, Nap Pods, Open Office, Podcast Booth, Merch Store, Data Center (stackable), and Sky Lounge, Vault, Trading Desk (one each).
+  - Up to 8 floors, added on top with 4 empty slots each; each floor costs 1.5x the last (from $6,000).
   - Room upgrades from level 1 to 5 (+8% output per level for the workers based there).
 - **Shop upgrades** (3 levels each):
   - Coffee machine: energy drains slower.
@@ -128,9 +129,14 @@ Set `GEMINI_API_KEY` in `.env.local` (see `.env.example`). Without it, every wor
 
 The per-IP rate limit is in memory, so on Vercel each function instance counts separately. For a hard global limit, put it in a shared store (e.g. Vercel KV / Upstash).
 
-## Rendering
+## Rendering (2.5D)
 
-The world is drawn at art resolution (260 px wide) into an offscreen buffer and scaled up with nearest-neighbour filtering. Neon parts are also drawn into an emissive buffer that is shrunk and re-expanded with bilinear filtering for a cheap two-level bloom. Name tags and emoji bubbles are drawn in screen space so they stay readable at any zoom. The static scene is cached and only rebuilt when the building or theme changes.
+- **World**: 760 art px wide. HQ (4 rooms per floor around a glass elevator, up to 8 floors) stands in a neon city: neighbor buildings with lit windows, vertical signs, rooftop billboards and shopfronts, a street with traffic, streetlights and a subway tunnel underneath.
+- **Depth**: every room is a lit box (side walls, ceiling and floor in perspective, ambient occlusion, lamp cones and the sign's colored light spill). Two distant skyline layers move with parallax and are fogged by distance; flying cars drift between them.
+- **Atmosphere**: the game clock drives a day/night cycle (sky, sun/moon, window lights, glow strength). Each game day has weather: clear, rain, storm (lightning) or fog. Wet streets reflect the neon.
+- **Pipeline**: the world is drawn at art resolution into a buffer and scaled with nearest-neighbour filtering. An emissive buffer and a baked light map feed a cheap bloom (downscale + bilinear upscale, both levels combined into one screen pass, only the visible part drawn). The sky and skyline are cached in their own canvas and redrawn only when the camera or sky changes. Characters are drawn in screen space at sub-pixel positions, so they glide smoothly.
+- **Camera**: full-screen canvas under a floating HUD; drag with momentum, pinch, eased wheel zoom, double-tap empty space to zoom, keyboard arrows / + / - / 0. It frames the whole tower on load and when it grows.
+- **Quality**: Auto / High / Low. Unthrottled headless Chromium, 8 floors at night in the rain, 390x844 @2x: High 67 fps; with 4x CPU throttling Auto settles on Low at ~90 fps.
 
 ## Roadmap
 

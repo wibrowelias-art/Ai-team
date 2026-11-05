@@ -1,22 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { buildOptions } from "@/game/build";
 import { ROOM_DEFS } from "@/game/building";
 import { FOCUS_LABEL } from "@/game/business";
 import { COLORS } from "@/game/constants";
-import { MAX_CREW, REROLL_COST } from "@/game/hiring";
+import { REROLL_COST } from "@/game/hiring";
 import { useGame } from "@/game/store";
 import { formatMoney } from "@/game/time";
 import type { GameState, RoomSlot } from "@/game/types";
 import {
-  ADD_FLOOR_COST,
+  addFloorCost,
   BUILD_COST,
   MAX_FLOORS,
   MAX_ROOM_LEVEL,
   MAX_UPGRADE_LEVEL,
+  maxCrew,
   ROOM_EFFECT,
   roomUpgradeCost,
   SHOP_UPGRADES,
+  UNIQUE_ROOMS,
   UPGRADE_IDS,
   upgradeCost,
 } from "@/game/upgrades";
@@ -42,6 +45,7 @@ export function RoomBuildBox({ room, cash, compact = false }: { room: RoomSlot; 
   const def = ROOM_DEFS[room.type];
   const effect = ROOM_EFFECT[room.type];
 
+  if (room.locked && room.type === "EMPTY") return <EmptySlotBox room={room} cash={cash} compact={compact} />;
   if (room.locked) {
     const cost = BUILD_COST[room.type];
     return (
@@ -84,6 +88,51 @@ export function RoomBuildBox({ room, cash, compact = false }: { room: RoomSlot; 
   );
 }
 
+/** An empty slot: pick a room type from the catalog. */
+function EmptySlotBox({ room, cash, compact }: { room: RoomSlot; cash: number; compact: boolean }) {
+  const game = useGame((s) => s.game);
+  const buildRoom = useGame((s) => s.buildRoom);
+  const [open, setOpen] = useState(compact);
+  const options = game ? buildOptions(game, room.id) : [];
+  return (
+    <div className="rounded border border-dashed border-white/20 bg-black/20 p-2" data-testid={`build-${room.id}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-pixel text-base text-white">Empty slot · floor {(game?.building.floors ?? 0) - room.floor}</div>
+          <div className="text-[11px] text-white/55">Pick what to build here.</div>
+        </div>
+        {!compact && (
+          <NeonButton color={COLORS.purple} onClick={() => setOpen(!open)} testId={`choose-${room.id}`}>
+            {open ? "Hide" : "Choose"}
+          </NeonButton>
+        )}
+      </div>
+      {open && (
+        <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {options.map((t) => {
+            const def = ROOM_DEFS[t];
+            const cost = BUILD_COST[t] ?? 0;
+            return (
+              <li key={t} className="flex items-center justify-between gap-2 rounded border border-white/10 bg-black/30 p-1.5">
+                <div className="min-w-0">
+                  <div className="font-pixel text-[15px]" style={{ color: def.color }}>
+                    {def.name}
+                    {UNIQUE_ROOMS.includes(t) ? <span className="ml-1 text-[11px] text-white/40">unique</span> : null}
+                  </div>
+                  <div className="text-[10px] leading-tight text-white/55">{ROOM_EFFECT[t]}</div>
+                </div>
+                <NeonButton color={def.color} disabled={cash < cost} onClick={() => buildRoom(room.id, t)} testId={`build-${room.id}-${t}`}>
+                  {formatMoney(cost)}
+                </NeonButton>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function BuildContent({ game }: { game: GameState }) {
   const addFloor = useGame((s) => s.addFloor);
   const buyUpgrade = useGame((s) => s.buyUpgrade);
@@ -113,10 +162,10 @@ export function BuildContent({ game }: { game: GameState }) {
         {canAddFloor ? (
           <div className="flex items-center justify-between gap-2 rounded border border-white/10 bg-black/20 p-2">
             <div className="text-[11px] text-white/55">
-              A new top floor with room for a Rooftop Lounge, Trading Desk and Vault. Rent goes up $150/day.
+              A new top floor with 4 empty slots to build anything from the catalog. Rent goes up $150/day.
             </div>
-            <NeonButton color={COLORS.cyan} disabled={game.cash < ADD_FLOOR_COST} onClick={addFloor} testId="add-floor">
-              Add {formatMoney(ADD_FLOOR_COST)}
+            <NeonButton color={COLORS.cyan} disabled={game.cash < addFloorCost(game.building.floors)} onClick={addFloor} testId="add-floor">
+              Add {formatMoney(addFloorCost(game.building.floors))}
             </NeonButton>
           </div>
         ) : (
@@ -183,12 +232,13 @@ export function HirePanel({ onClose }: { onClose: () => void }) {
   const skip = useGame((s) => s.skipCandidate);
   useEffect(() => refresh(), [refresh]);
   if (!game) return null;
-  const full = game.workers.length >= MAX_CREW;
+  const cap = maxCrew(game);
+  const full = game.workers.length >= cap;
 
   return (
     <Panel title="Hire" accent={COLORS.green} onClose={onClose} testId="panel-hire">
       <p className="text-xs text-white/60">
-        Crew {game.workers.length}/{MAX_CREW}. Hiring costs one day&apos;s salary as a signing bonus. New shortlist every day.
+        Crew {game.workers.length}/{cap}. Hiring costs one day&apos;s salary as a signing bonus. New shortlist every day.
       </p>
       <ul className="mt-3 flex flex-col gap-2">
         {game.candidates.map((c) => (

@@ -35,7 +35,7 @@ export function RoomPanel({ id, onClose }: { id: string; onClose: () => void }) 
         </span>
       </div>
       <div className="mt-3">
-        <RoomBuildBox room={room} cash={game.cash} compact={!room.locked} />
+        <RoomBuildBox room={room} cash={game.cash} compact={!room.locked || room.type === "EMPTY"} />
       </div>
       {room.locked ? null : (
         <>

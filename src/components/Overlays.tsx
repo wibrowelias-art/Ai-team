@@ -10,7 +10,7 @@ import { usePolledGame } from "./usePolled";
 
 function Modal({ children, accent, testId, label }: { children: React.ReactNode; accent: string; testId: string; label: string }) {
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-4 animate-fade" data-testid={testId}>
+    <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-4 animate-fade" data-testid={testId}>
       <section
         role="alertdialog"
         aria-label={label}

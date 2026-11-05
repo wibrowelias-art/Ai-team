@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { SPEEDS } from "@/game/constants";
 import { saveGame, saveGameSync } from "@/game/save";
 import { useGame } from "@/game/store";
@@ -96,6 +96,32 @@ function AiRunner() {
   return null;
 }
 
+/** Toggle browser fullscreen where it is supported (not on iPhone Safari). */
+function FullscreenButton() {
+  // GameView only renders in the browser, so document is available here.
+  const [supported] = useState(() => typeof document !== "undefined" && !!document.fullscreenEnabled);
+  const on = useSyncExternalStore(
+    (cb) => {
+      document.addEventListener("fullscreenchange", cb);
+      return () => document.removeEventListener("fullscreenchange", cb);
+    },
+    () => !!document.fullscreenElement,
+    () => false,
+  );
+  if (!supported) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => undefined)}
+      aria-label={on ? "Exit fullscreen" : "Fullscreen"}
+      data-testid="fullscreen"
+      className="flex h-8 w-9 items-center justify-center rounded border border-white/15 bg-ink/80 text-base text-white/70"
+    >
+      {on ? "🗗" : "⛶"}
+    </button>
+  );
+}
+
 function TopControls() {
   const speed = useGame((s) => s.game?.settings.speed ?? 1);
   const setSpeed = useGame((s) => s.setSpeed);
@@ -120,6 +146,7 @@ function TopControls() {
         ))}
       </div>
       <div className="pointer-events-auto flex gap-1.5">
+        <FullscreenButton />
         <button
           type="button"
           onClick={() => setSetting("sound", !sound)}
@@ -145,27 +172,55 @@ function TopControls() {
 }
 
 /** Everything on screen while playing. Loaded as its own chunk after the intro. */
+/** Size of an element, kept up to date. */
+function useHeight(ref: React.RefObject<HTMLElement | null>): number {
+  const [h, setH] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setH(el.getBoundingClientRect().height));
+    ro.observe(el);
+    setH(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, [ref]);
+  return h;
+}
+
+/** Everything on screen while playing. Loaded as its own chunk after the intro. */
 export default function GameView() {
   const scanlines = useGame((s) => s.game?.settings.scanlines ?? true);
   useSaveLifecycle(true);
+  const hudRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const top = useHeight(hudRef);
+  const bottom = useHeight(navRef);
+  const insets = useMemo(() => ({ top, bottom }), [top, bottom]);
 
+  // The building fills the whole screen; the HUD and bottom bar float over it.
   return (
-    <main className="flex h-dvh flex-col bg-ink text-white" data-testid="game">
-      <Hud />
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <GameCanvas />
-        <div className="vignette absolute inset-0" />
-        {scanlines && <div className="scanlines absolute inset-0" data-testid="scanlines" />}
-        <TopControls />
-        <Toasts />
-        <AiRunner />
-        <SoundDirector />
-        <Tutorial />
-        <Panels />
-        <EventModal />
-        <AwayModal />
+    <main className="relative h-dvh overflow-hidden bg-ink text-white" data-testid="game">
+      <GameCanvas insets={insets} />
+      <div className="vignette pointer-events-none absolute inset-0" />
+      {scanlines && <div className="scanlines absolute inset-0" data-testid="scanlines" />}
+      <div ref={hudRef} className="absolute inset-x-0 top-0 z-30">
+        <Hud />
       </div>
-      <BottomBar />
+      {/* Overlays live between the HUD and the bottom bar so they never cover either. */}
+      <div className="pointer-events-none absolute inset-x-0 z-20" style={{ top, bottom }}>
+        <div className="relative h-full w-full">
+          <TopControls />
+          <Toasts />
+          <AiRunner />
+          <SoundDirector />
+          <Tutorial />
+          <Panels />
+          <EventModal />
+          <AwayModal />
+        </div>
+      </div>
+      <div ref={navRef} className="absolute inset-x-0 bottom-0 z-30">
+        <BottomBar />
+      </div>
     </main>
   );
 }
