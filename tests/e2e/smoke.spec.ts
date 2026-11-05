@@ -227,6 +227,35 @@ test("mobile: hire a candidate and fire a worker", async ({ page }) => {
   await expect(page.getByTestId("crew-maverick")).toHaveCount(0);
 });
 
+test("layout fits from small phones to desktop", async ({ page }) => {
+  await startGame(page);
+  await page.getByTestId("speed-0").click();
+  for (const [w, h] of [
+    [360, 640],
+    [390, 844],
+    [844, 390],
+    [768, 1024],
+    [1440, 900],
+  ]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(150);
+    const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(scrollW, `${w}x${h} horizontal scroll`).toBeLessThanOrEqual(w + 1);
+    const hud = (await page.getByTestId("hud").boundingBox())!;
+    const nav = (await page.locator("nav[aria-label=Main]").boundingBox())!;
+    expect(nav.y + nav.height, `${w}x${h} bottom bar`).toBeLessThanOrEqual(h + 1);
+    for (const panel of ["crew", "build"]) {
+      await page.getByTestId(`nav-${panel}`).click();
+      await page.waitForTimeout(300); // let the slide-in animation finish
+      const dlg = (await page.getByRole("dialog").boundingBox())!;
+      expect(dlg.y, `${w}x${h} ${panel} vs HUD`).toBeGreaterThanOrEqual(hud.y + hud.height - 1);
+      expect(dlg.y + dlg.height, `${w}x${h} ${panel} vs bottom bar`).toBeLessThanOrEqual(nav.y + 1);
+      expect(dlg.x + dlg.width, `${w}x${h} ${panel} width`).toBeLessThanOrEqual(w + 1);
+      await page.getByTestId("panel-close").click();
+    }
+  }
+});
+
 test("mobile: tapping a room on the canvas opens its panel", async ({ page }) => {
   await startGame(page);
   const canvas = await box(page, "game-canvas");

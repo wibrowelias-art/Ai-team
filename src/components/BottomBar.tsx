@@ -18,7 +18,7 @@ export default function BottomBar() {
 
   return (
     <nav
-      className="relative z-30 grid shrink-0 grid-cols-5 border-t border-cyan/30 bg-ink/95 shadow-[0_-2px_16px_-4px_rgba(34,230,255,0.35)]"
+      className="relative z-30 grid shrink-0 grid-cols-5 px-[max(0px,calc((100%-40rem)/2))] border-t border-cyan/30 bg-ink/95 shadow-[0_-2px_16px_-4px_rgba(34,230,255,0.35)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Main"
     >
